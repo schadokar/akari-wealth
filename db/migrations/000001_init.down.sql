@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS expenses;
+DROP TABLE IF EXISTS entities;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS entity_types;

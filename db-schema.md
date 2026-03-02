@@ -12,13 +12,21 @@ All tables include timestamps to support time-series reporting and graphs.
 
 # Tables
 
+## entity_types
+Shared lookup table for account and entity classifications.
+- `id`
+- `category` — ACCOUNT | ENTITY
+- `name` — BANK | BROKERAGE | WALLET | CASH | CRYPTO | NPS | EPF | PPF | GOLD | LOAN | CREDIT_CARD | EQUITY | DEBT | COMMODITY
+- `kind` — ASSET | LIABILITY
+
 ## accounts
 Represents a financial account or holding vehicle (where assets are held).
 - `id`
 - `name`
-- `type` — BANK | BROKERAGE | WALLET | CASH | CRYPTO | STOCK | MF | ETF | NPS | EPF | PPF | GOLD | LOAN | CREDIT_CARD
-- `kind` — ASSET | LIABILITY
+- `entity_type_id` → entity_types.id (category=ACCOUNT)
+- `amount`
 - `created_at`
+- `updated_at`
 
 ## entities
 Represents individual instruments or products within an account.
@@ -27,15 +35,12 @@ Represents individual instruments or products within an account.
 - `symbol` — ticker or identifier (e.g., INFY, NIFTY50, NPS-SBI-E)
 - `name` — display name
 - `meta` — JSON for instrument-specific fields (NAV, price, units, interest rate, etc.)
-- `created_at`
-
-## investments
-Tracks the financial position of each entity over time (supports time-series).
-- `id`
-- `entity_id` → entities.id
+- `type` — EQUITY | DEBT | COMMODITY
+- `subtype` — MF | STOCK | GOLD | SILVER
 - `invested_amount`
 - `current_amount`
-- `recorded_at` — snapshot date (use for time-series graphs)
+- `created_at`
+- `updated_at`
 
 ## expenses
 Records spending, either itemised or consolidated.

@@ -1,15 +1,24 @@
 -- Personal Finance Schema — PostgreSQL
 
+CREATE TABLE entity_types (
+    id       SERIAL PRIMARY KEY,
+    category TEXT   NOT NULL CHECK (category IN ('ACCOUNT','ENTITY', 'ENTITY_SUBTYPE')),
+    name     TEXT   NOT NULL CHECK (name IN (
+                 'BANK','BROKERAGE','WALLET','CASH','CRYPTO',
+                 'NPS','EPF','PPF','GOLD','LOAN','CREDIT_CARD',
+                 'EQUITY','DEBT','COMMODITY'
+             )),
+    kind     TEXT   NOT NULL CHECK (kind IN ('ASSET','LIABILITY')),
+    UNIQUE (category, name)
+);
+
 CREATE TABLE accounts (
-    id         SERIAL PRIMARY KEY,
-    name       TEXT   NOT NULL,
-    type       TEXT   NOT NULL CHECK (type IN (
-                   'BANK','BROKERAGE','WALLET','CASH','CRYPTO',
-                   'STOCK','MF','ETF','NPS','EPF','PPF','GOLD',
-                   'LOAN','CREDIT_CARD'
-               )),
-    kind       TEXT   NOT NULL CHECK (kind IN ('ASSET','LIABILITY')),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    id             SERIAL  PRIMARY KEY,
+    name           TEXT    NOT NULL,
+    entity_type_id INTEGER NOT NULL REFERENCES entity_types(id),
+    amount          NUMERIC NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE entities (
@@ -18,7 +27,10 @@ CREATE TABLE entities (
     symbol     TEXT,
     name       TEXT    NOT NULL,
     meta       JSONB,                         -- use ->> / @> operators for querying
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    type       TEXT    NOT NULL CHECK (type IN ('EQUITY','DEBT','COMMODITY')),
+    subtype    TEXT    CHECK (subtype IN ('MF','Stock','Gold','Silver')),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Append-only snapshot log; never update rows, insert new ones.
@@ -70,4 +82,12 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER expenses_updated_at
     BEFORE UPDATE ON expenses
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER accounts_updated_at
+    BEFORE UPDATE ON accounts
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER entities_updated_at
+    BEFORE UPDATE ON entities
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
