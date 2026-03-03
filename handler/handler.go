@@ -54,6 +54,19 @@ func New(svc Service) *Handler {
 	return &Handler{svc: svc}
 }
 
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (h *Handler) Routes() *chi.Mux {
 	r := chi.NewRouter()
 
@@ -127,6 +140,30 @@ func (h *Handler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, toAccountResponse(a))
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) getLatestAccounts(w http.ResponseWriter, r *http.Request) {
+	accounts, err := h.svc.GetLatestAccounts(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if accounts == nil {
+		accounts = []model.Account{}
+	}
+	writeJSON(w, http.StatusOK, accounts)
+}
+
+func (h *Handler) getAccountSummaryByKind(w http.ResponseWriter, r *http.Request) {
+	summaries, err := h.svc.GetAccountSummaryByKind(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if summaries == nil {
+		summaries = []model.AccountSummaryByKind{}
+	}
+	writeJSON(w, http.StatusOK, summaries)
 }
 
 func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {

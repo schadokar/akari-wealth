@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   SidebarProvider,
@@ -29,17 +30,15 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { AppSidebar } from "@/components/AppSidebar";
-import { KPICard } from "@/components/KPICard";
 import { formatINR } from "@/lib/formatINR";
 
 // --- Mock Data ---
 
-const kpis = [
-  { title: "Total Portfolio", value: 2845000, trend: "12.4%", trendUp: true },
-  { title: "Total Earnings", value: 125000, trend: "8.2%", trendUp: true },
-  { title: "Total Expenses", value: 48500, trend: "3.1%", trendUp: false },
-  { title: "Net Worth", value: 3215000, trend: "10.6%", trendUp: true },
-];
+interface AccountSummaryByKind {
+  kind: string;
+  total: number;
+  invested_total: number;
+}
 
 
 const transactions = [
@@ -97,10 +96,13 @@ interface Account {
   ID: number;
   Name: string;
   Amount: number;
+  InvestedAmount: number;
 }
 
 export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [summaryByKind, setSummaryByKind] = useState<AccountSummaryByKind[]>([]);
+  const [accountsOpen, setAccountsOpen] = useState(true);
 
   useEffect(() => {
     fetch("http://localhost:8080/accounts")
@@ -108,9 +110,17 @@ export default function DashboardPage() {
       .then((data: Account[]) =>
         setAccounts((data ?? []).filter((a) => a.Amount > 0))
       );
+    fetch("http://localhost:8080/accounts/summary/kind")
+      .then((res) => res.json())
+      .then((data: AccountSummaryByKind[]) => setSummaryByKind(data ?? []));
   }, []);
 
-  const accountsTotal = accounts.reduce((sum, a) => sum + a.Amount, 0);
+  const assetSummary = summaryByKind.find((s) => s.kind === "ASSET");
+  const liabilitySummary = summaryByKind.find((s) => s.kind === "LIABILITY");
+  const totalAsset = assetSummary?.total ?? 0;
+  const totalLiability = liabilitySummary?.total ?? 0;
+  const investedAsset = assetSummary?.invested_total ?? 0;
+  const investedLiability = liabilitySummary?.invested_total ?? 0;
 
   return (
     <SidebarProvider>
@@ -159,42 +169,66 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* KPI Row */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {kpis.map((kpi) => (
-              <KPICard key={kpi.title} {...kpi} />
-            ))}
+          {/* KPI Cards */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardDescription>Total Assets</CardDescription>
+                <CardTitle className="text-2xl">{formatINR(totalAsset)}</CardTitle>
+                <p className="text-xs text-muted-foreground">Invested: {formatINR(investedAsset)}</p>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription>Total Liabilities</CardDescription>
+                <CardTitle className="text-2xl">{formatINR(totalLiability)}</CardTitle>
+                <p className="text-xs text-muted-foreground">Invested: {formatINR(investedLiability)}</p>
+              </CardHeader>
+            </Card>
+            <Card className={totalAsset - totalLiability >= 0
+              ? "border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20"
+              : "border-red-500/40 bg-red-50/50 dark:bg-red-950/20"
+            }>
+              <CardHeader>
+                <CardDescription>Net Worth</CardDescription>
+                <CardTitle className={`text-2xl ${totalAsset - totalLiability >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  {formatINR(totalAsset - totalLiability)}
+                </CardTitle>
+              </CardHeader>
+            </Card>
           </div>
 
           {/* Accounts Section */}
           <Card>
-            <CardHeader>
-              <CardTitle>Accounts</CardTitle>
-              <CardDescription>Current value across accounts</CardDescription>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => setAccountsOpen((prev) => !prev)}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Accounts</CardTitle>
+                  <CardDescription>Current value across accounts</CardDescription>
+                </div>
+                <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${accountsOpen ? "rotate-180" : ""}`} />
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {accounts.map((account) => (
-                  <Card key={account.ID}>
-                    <CardHeader>
-                      <CardDescription>{account.Name}</CardDescription>
-                      <CardTitle className="text-xl">
-                        {formatINR(account.Amount)}
-                      </CardTitle>
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between px-2">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Total
-                </span>
-                <span className="text-lg font-bold">
-                  {formatINR(accountsTotal)}
-                </span>
-              </div>
-            </CardContent>
+            {accountsOpen && (
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {accounts.map((account) => (
+                    <Card key={account.ID}>
+                      <CardHeader>
+                        <CardDescription>{account.Name}</CardDescription>
+                        <CardTitle className="text-xl">
+                          {formatINR(account.Amount)}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">Invested: {formatINR(account.InvestedAmount)}</p>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            )}
           </Card>
 
           {/* Recent Transactions */}

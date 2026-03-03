@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboardIcon,
+  LandmarkIcon,
   TrendingUpIcon,
   WalletIcon,
   IndianRupeeIcon,
@@ -21,6 +22,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
+  { title: "Accounts", href: "/accounts", icon: LandmarkIcon },
   { title: "Investments", href: "/investments", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },
