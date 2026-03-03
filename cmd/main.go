@@ -39,10 +39,6 @@ func main() {
 	runMigrations()
 
 	repo := repository.New(db)
-	err = repo.LoadEntityTypes(context.Background(), "./db/data/entity_type.csv")
-	if err != nil {
-		log.Fatal("error while loading the entity types", err)
-	}
 
 	err = repo.LoadFinancialInstruments(context.Background(), "./db/data/financial_instruments.csv")
 	if err != nil {
