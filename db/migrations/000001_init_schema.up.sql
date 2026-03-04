@@ -3,14 +3,14 @@ PRAGMA foreign_keys = ON;
 -- 1. Unified accounts table
 CREATE TABLE IF NOT EXISTS accounts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    name            TEXT    NOT NULL,
+    name            TEXT    NOT NULL UNIQUE,
     category        TEXT    NOT NULL CHECK (category IN (
                         'bank', 'brokerage', 'nps_t1', 'nps_t2', 'epf', 'eps',
                         'credit_card', 'loan', 'fd', 'rd', 'ppf', 'ssy', 'cash'
                     )),
     sub_category    TEXT,
     asset_class     TEXT    NOT NULL CHECK (asset_class IN (
-                        'equity', 'debt', 'commodity', 'hybrid', 'cash', 'liability'
+                        'equity', 'debt', 'commodity', 'hybrid', 'cash', 'liability', 'asset'
                     )),
     institution     TEXT,
     interest_rate   REAL,
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     maturity_date   TEXT,
     is_active       INTEGER NOT NULL DEFAULT 1,
     notes           TEXT,
-    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_accounts_category ON accounts(category);
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS holdings (
     asset_class     TEXT    CHECK (asset_class IN ('equity', 'debt', 'commodity', 'hybrid')),
     is_active       INTEGER NOT NULL DEFAULT 1,
     notes           TEXT,
-    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_holdings_account_id ON holdings(account_id);
@@ -44,11 +44,11 @@ CREATE TABLE IF NOT EXISTS account_snapshots (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id      INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     month           TEXT    NOT NULL,
-    invested_amount REAL,
+    invested_amount REAL NOT NULL DEFAULT 0,
     current_amount  REAL    NOT NULL,
     is_auto         INTEGER NOT NULL DEFAULT 0,
     notes           TEXT,
-    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(account_id, month)
 );
 
@@ -59,9 +59,9 @@ CREATE TABLE IF NOT EXISTS holding_snapshots (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     holding_id      INTEGER NOT NULL REFERENCES holdings(id) ON DELETE CASCADE,
     month           TEXT    NOT NULL,
-    invested_amount REAL,
+    invested_amount REAL NOT NULL DEFAULT 0,
     current_amount  REAL    NOT NULL,
-    created_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(holding_id, month)
 );
 
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS credit_card_snapshots (
     outstanding_balance REAL    NOT NULL,
     credit_limit        REAL,
     min_due             REAL,
-    created_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(account_id, month)
 );
 
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS monthly_summary (
     commodity_amount REAL    NOT NULL DEFAULT 0,
     hybrid_amount    REAL    NOT NULL DEFAULT 0,
     cash_amount      REAL    NOT NULL DEFAULT 0,
-    created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE financial_instruments (

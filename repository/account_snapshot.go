@@ -69,6 +69,31 @@ func (r *Repository) GetAccountSnapshotsByMonth(ctx context.Context, month strin
 	return snapshots, rows.Err()
 }
 
+func (r *Repository) GetLatestAccountSnapshotPerAccount(ctx context.Context) (map[int64]model.AccountSnapshotAmounts, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT s.account_id, s.current_amount, s.invested_amount
+		 FROM account_snapshots s
+		 INNER JOIN (
+		   SELECT account_id, MAX(month) AS max_month FROM account_snapshots GROUP BY account_id
+		 ) m ON s.account_id = m.account_id AND s.month = m.max_month`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]model.AccountSnapshotAmounts)
+	for rows.Next() {
+		var accountID int64
+		var amounts model.AccountSnapshotAmounts
+		if err := rows.Scan(&accountID, &amounts.CurrentAmount, &amounts.InvestedAmount); err != nil {
+			return nil, err
+		}
+		result[accountID] = amounts
+	}
+	return result, rows.Err()
+}
+
 func (r *Repository) GetAccountSnapshotByAccountAndMonth(ctx context.Context, accountID int64, month string) (*model.AccountSnapshot, error) {
 	var s model.AccountSnapshot
 	var isAuto int

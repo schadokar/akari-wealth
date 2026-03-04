@@ -43,6 +43,31 @@ func (r *Repository) GetCreditCardSnapshotsByAccountID(ctx context.Context, acco
 	return snapshots, rows.Err()
 }
 
+func (r *Repository) GetLatestCreditCardSnapshotPerAccount(ctx context.Context) (map[int64]float64, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT s.account_id, s.outstanding_balance
+		 FROM credit_card_snapshots s
+		 INNER JOIN (
+		   SELECT account_id, MAX(month) AS max_month FROM credit_card_snapshots GROUP BY account_id
+		 ) m ON s.account_id = m.account_id AND s.month = m.max_month`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]float64)
+	for rows.Next() {
+		var accountID int64
+		var balance float64
+		if err := rows.Scan(&accountID, &balance); err != nil {
+			return nil, err
+		}
+		result[accountID] = balance
+	}
+	return result, rows.Err()
+}
+
 func (r *Repository) GetCreditCardSnapshotsByMonth(ctx context.Context, month string) ([]model.CreditCardSnapshot, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, account_id, month, outstanding_balance, credit_limit, min_due, created_at

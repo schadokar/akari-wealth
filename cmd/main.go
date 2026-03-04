@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/perfi/usecase"
 )
 
+const tableName = "perfi"
+
 func main() {
 	cleanDB := flag.Bool("clean-db", false, "drop all tables and exit")
 	flag.Parse()
@@ -26,7 +29,8 @@ func main() {
 		return
 	}
 
-	db, err := sql.Open("sqlite", "./perfi.db")
+	db, err := sql.Open("sqlite", fmt.Sprintf("./%s.db?_texttotime=true", tableName))
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +57,7 @@ func main() {
 }
 
 func dropAllTables() {
-	m, err := migrate.New("file://db/migrations", "sqlite://./perfi.db")
+	m, err := migrate.New("file://db/migrations", getMigrateDBString())
 	if err != nil {
 		log.Fatal("migrations init:", err)
 	}
@@ -66,7 +70,7 @@ func dropAllTables() {
 }
 
 func runMigrations() {
-	m, err := migrate.New("file://db/migrations", "sqlite://./perfi.db")
+	m, err := migrate.New("file://db/migrations", getMigrateDBString())
 	if err != nil {
 		log.Fatal("migrations init:", err)
 	}
@@ -75,4 +79,8 @@ func runMigrations() {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatal("migrations up:", err)
 	}
+}
+
+func getMigrateDBString() string {
+	return fmt.Sprintf("sqlite://./%s.db", tableName)
 }

@@ -27,6 +27,7 @@ type Store interface {
 	GetAccountSnapshotsByAccountID(ctx context.Context, accountID int64) ([]model.AccountSnapshot, error)
 	GetAccountSnapshotsByMonth(ctx context.Context, month string) ([]model.AccountSnapshot, error)
 	GetAccountSnapshotByAccountAndMonth(ctx context.Context, accountID int64, month string) (*model.AccountSnapshot, error)
+	GetLatestAccountSnapshotPerAccount(ctx context.Context) (map[int64]model.AccountSnapshotAmounts, error)
 
 	// Holding Snapshots
 	UpsertHoldingSnapshot(ctx context.Context, s model.HoldingSnapshot) (int64, error)
@@ -36,6 +37,10 @@ type Store interface {
 	UpsertCreditCardSnapshot(ctx context.Context, s model.CreditCardSnapshot) (int64, error)
 	GetCreditCardSnapshotsByAccountID(ctx context.Context, accountID int64) ([]model.CreditCardSnapshot, error)
 	GetCreditCardSnapshotsByMonth(ctx context.Context, month string) ([]model.CreditCardSnapshot, error)
+	GetLatestCreditCardSnapshotPerAccount(ctx context.Context) (map[int64]float64, error)
+
+	// Financial Instruments
+	SearchFinancialInstruments(ctx context.Context, query, instrumentType string, limit int) ([]model.FinancialInstrument, error)
 
 	// Monthly Summary
 	UpsertMonthlySummary(ctx context.Context, s model.MonthlySummary) error

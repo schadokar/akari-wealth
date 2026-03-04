@@ -7,6 +7,7 @@ import {
   IndianRupeeIcon,
   BarChart3Icon,
   SettingsIcon,
+  ClipboardCheckIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -23,7 +24,8 @@ import {
 const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Accounts", href: "/accounts", icon: LandmarkIcon },
-  { title: "Investments", href: "/investments", icon: TrendingUpIcon },
+  { title: "Check In", href: "/checkin", icon: ClipboardCheckIcon },
+  { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },
   { title: "Reports", href: "/reports", icon: BarChart3Icon },

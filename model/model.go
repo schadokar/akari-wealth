@@ -109,6 +109,11 @@ type MonthlySummary struct {
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
+type AccountSnapshotAmounts struct {
+	CurrentAmount  float64 `json:"current_amount"`
+	InvestedAmount float64 `json:"invested_amount"`
+}
+
 // --- Request DTOs ---
 
 type CreateAccountRequest struct {
@@ -175,19 +180,19 @@ type CreditCardSnapshotRequest struct {
 // --- Response DTOs ---
 
 type AccountResponse struct {
-	ID           int64    `json:"id"`
-	Name         string   `json:"name"`
-	Category     string   `json:"category"`
-	SubCategory  *string  `json:"sub_category,omitempty"`
-	AssetClass   string   `json:"asset_class"`
-	Institution  *string  `json:"institution,omitempty"`
-	InterestRate *float64 `json:"interest_rate,omitempty"`
-	EMIAmount    *float64 `json:"emi_amount,omitempty"`
-	MaturityDate *string  `json:"maturity_date,omitempty"`
-	IsActive     bool     `json:"is_active"`
-	Notes        *string  `json:"notes,omitempty"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
+	ID             int64    `json:"id"`
+	Name           string   `json:"name"`
+	Category       string   `json:"category"`
+	SubCategory    *string  `json:"sub_category,omitempty"`
+	AssetClass     string   `json:"asset_class"`
+	Institution    *string  `json:"institution,omitempty"`
+	InterestRate   *float64 `json:"interest_rate,omitempty"`
+	EMIAmount      *float64 `json:"emi_amount,omitempty"`
+	MaturityDate   *string  `json:"maturity_date,omitempty"`
+	IsActive       bool     `json:"is_active"`
+	Notes          *string  `json:"notes,omitempty"`
+	CurrentAmount  *float64 `json:"current_amount,omitempty"`
+	InvestedAmount *float64 `json:"invested_amount,omitempty"`
 }
 
 type HoldingResponse struct {
@@ -201,12 +206,22 @@ type HoldingResponse struct {
 	CreatedAt      string  `json:"created_at"`
 }
 
+type FinancialInstrument struct {
+	ID             int64   `json:"id" db:"id"`
+	Name           string  `json:"name" db:"name"`
+	Symbol         string  `json:"symbol" db:"symbol"`
+	AssetClass     string  `json:"asset_class" db:"asset_class"`
+	InstrumentType string  `json:"instrument_type" db:"instrument_type"`
+	Provider       *string `json:"provider,omitempty" db:"provider"`
+	ISINCode       *string `json:"isin_code,omitempty" db:"isin_code"`
+}
+
 type DashboardResponse struct {
-	NetWorth          float64                `json:"net_worth"`
-	TotalAssets       float64                `json:"total_assets"`
-	TotalLiabilities  float64                `json:"total_liabilities"`
-	AssetDistribution map[string]float64     `json:"asset_distribution"`
-	MonthOverMonth    *MonthOverMonthChange  `json:"month_over_month,omitempty"`
+	NetWorth          float64               `json:"net_worth"`
+	TotalAssets       float64               `json:"total_assets"`
+	TotalLiabilities  float64               `json:"total_liabilities"`
+	AssetDistribution map[string]float64    `json:"asset_distribution"`
+	MonthOverMonth    *MonthOverMonthChange `json:"month_over_month,omitempty"`
 }
 
 type MonthOverMonthChange struct {

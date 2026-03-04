@@ -19,6 +19,10 @@ func (r *Repository) LoadFinancialInstruments(ctx context.Context, filePath stri
 	}
 
 	for _, row := range records[1:] { // skip header row
+		if row[6] == "FALSE" {
+			// skip the record
+			continue
+		}
 		// CSV columns: name, symbol, isin, asset_class, instrument_type, provider
 		_, err := r.db.ExecContext(ctx,
 			`INSERT INTO financial_instruments (name, symbol, isin_code, asset_class, instrument_type, provider)

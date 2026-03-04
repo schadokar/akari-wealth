@@ -63,7 +63,7 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
-	query += " ORDER BY name"
+	query += " ORDER BY category, name"
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -86,7 +86,7 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 
 func (r *Repository) UpdateAccount(ctx context.Context, id int64, a model.Account) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE accounts SET name = ?, sub_category = ?, asset_class = ?, institution = ?, interest_rate = ?, emi_amount = ?, maturity_date = ?, is_active = ?, notes = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+		`UPDATE accounts SET name = ?, sub_category = ?, asset_class = ?, institution = ?, interest_rate = ?, emi_amount = ?, maturity_date = ?, is_active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE id = ?`,
 		a.Name, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.MaturityDate, boolToInt(a.IsActive), a.Notes, id,
 	)
@@ -95,7 +95,7 @@ func (r *Repository) UpdateAccount(ctx context.Context, id int64, a model.Accoun
 
 func (r *Repository) SoftDeleteAccount(ctx context.Context, id int64) error {
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE accounts SET is_active = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?`, id,
+		`UPDATE accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id,
 	)
 	if err != nil {
 		return err

@@ -13,14 +13,6 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -32,95 +24,102 @@ import {
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
 
-// --- Mock Data ---
+// --- Types matching backend responses ---
 
-interface AccountSummaryByKind {
-  kind: string;
-  total: number;
-  invested_total: number;
+interface DashboardData {
+  net_worth: number;
+  total_assets: number;
+  total_liabilities: number;
+  asset_distribution: Record<string, number>;
+  month_over_month?: {
+    previous_net_worth: number;
+    change: number;
+    change_percent: number;
+  };
 }
 
+interface MonthlySummary {
+  month: string;
+  net_worth: number;
+  total_assets: number;
+  total_liabilities: number;
+  equity_amount: number;
+  debt_amount: number;
+  commodity_amount: number;
+  hybrid_amount: number;
+  cash_amount: number;
+}
 
-const transactions = [
-  {
-    date: "2026-02-28",
-    type: "Credit",
-    category: "Salary",
-    amount: 125000,
-  },
-  {
-    date: "2026-02-25",
-    type: "Debit",
-    category: "SIP — Mutual Fund",
-    amount: -15000,
-  },
-  {
-    date: "2026-02-20",
-    type: "Debit",
-    category: "Rent",
-    amount: -18000,
-  },
-  {
-    date: "2026-02-18",
-    type: "Debit",
-    category: "Groceries",
-    amount: -5500,
-  },
-  {
-    date: "2026-02-15",
-    type: "Credit",
-    category: "Freelance",
-    amount: 25000,
-  },
-];
-
-const portfolioTrend = [
-  { month: "Sep", value: 2200000 },
-  { month: "Oct", value: 2350000 },
-  { month: "Nov", value: 2420000 },
-  { month: "Dec", value: 2580000 },
-  { month: "Jan", value: 2710000 },
-  { month: "Feb", value: 2845000 },
-];
+interface Account {
+  id: number;
+  name: string;
+  category: string;
+  asset_class: string;
+  institution?: string;
+  is_active: boolean;
+  current_amount?: number;
+}
 
 const chartConfig = {
-  value: {
-    label: "Portfolio",
+  net_worth: {
+    label: "Net Worth",
     color: "var(--color-primary)",
   },
 } satisfies ChartConfig;
 
-// --- Page ---
+const ASSET_CLASS_LABELS: Record<string, string> = {
+  equity: "Equity",
+  debt: "Debt",
+  commodity: "Commodity",
+  hybrid: "Hybrid",
+  cash: "Cash",
+};
 
-interface Account {
-  ID: number;
-  Name: string;
-  Amount: number;
-  InvestedAmount: number;
+// Build "from" month: 6 months ago in YYYY-MM format
+function getMonthRange(): { from: string; to: string } {
+  const now = new Date();
+  const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const from = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}`;
+  return { from, to };
 }
 
 export default function DashboardPage() {
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [trendData, setTrendData] = useState<{ month: string; net_worth: number }[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [summaryByKind, setSummaryByKind] = useState<AccountSummaryByKind[]>([]);
   const [accountsOpen, setAccountsOpen] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8080/accounts")
+    fetch("http://localhost:8080/api/dashboard")
       .then((res) => res.json())
-      .then((data: Account[]) =>
-        setAccounts((data ?? []).filter((a) => a.Amount > 0))
-      );
-    fetch("http://localhost:8080/accounts/summary/kind")
+      .then((data: DashboardData) => setDashboard(data));
+
+    const { from, to } = getMonthRange();
+    fetch(`http://localhost:8080/api/summary?from=${from}&to=${to}`)
       .then((res) => res.json())
-      .then((data: AccountSummaryByKind[]) => setSummaryByKind(data ?? []));
+      .then((data: MonthlySummary[]) => {
+        setTrendData(
+          (data ?? []).map((s) => ({
+            month: s.month,
+            net_worth: s.net_worth,
+          }))
+        );
+      });
+
+    fetch("http://localhost:8080/api/accounts?is_active=true")
+      .then((res) => res.json())
+      .then((data: Account[]) => setAccounts(data ?? []));
   }, []);
 
-  const assetSummary = summaryByKind.find((s) => s.kind === "ASSET");
-  const liabilitySummary = summaryByKind.find((s) => s.kind === "LIABILITY");
-  const totalAsset = assetSummary?.total ?? 0;
-  const totalLiability = liabilitySummary?.total ?? 0;
-  const investedAsset = assetSummary?.invested_total ?? 0;
-  const investedLiability = liabilitySummary?.invested_total ?? 0;
+  const totalAssets = dashboard?.total_assets ?? 0;
+  const totalLiabilities = dashboard?.total_liabilities ?? 0;
+  const netWorth = dashboard?.net_worth ?? 0;
+  const mom = dashboard?.month_over_month;
+  const assetDist = dashboard?.asset_distribution ?? {};
+
+  // Filter out zero-value asset classes for display
+  const assetDistEntries = Object.entries(assetDist).filter(([, v]) => v > 0);
 
   return (
     <SidebarProvider>
@@ -138,15 +137,15 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex-1 space-y-6 p-6">
-          {/* Portfolio Trend Chart */}
+          {/* Net Worth Trend Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Portfolio Trend</CardTitle>
+              <CardTitle>Net Worth Trend</CardTitle>
               <CardDescription>Last 6 months</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-48 w-full">
-                <AreaChart data={portfolioTrend}>
+                <AreaChart data={trendData}>
                   <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="month"
@@ -158,7 +157,7 @@ export default function DashboardPage() {
                     content={<ChartTooltipContent indicator="line" />}
                   />
                   <Area
-                    dataKey="value"
+                    dataKey="net_worth"
                     type="natural"
                     fill="var(--color-primary)"
                     fillOpacity={0.1}
@@ -174,29 +173,54 @@ export default function DashboardPage() {
             <Card>
               <CardHeader>
                 <CardDescription>Total Assets</CardDescription>
-                <CardTitle className="text-2xl">{formatINR(totalAsset)}</CardTitle>
-                <p className="text-xs text-muted-foreground">Invested: {formatINR(investedAsset)}</p>
+                <CardTitle className="text-2xl">{formatINR(totalAssets)}</CardTitle>
               </CardHeader>
             </Card>
             <Card>
               <CardHeader>
                 <CardDescription>Total Liabilities</CardDescription>
-                <CardTitle className="text-2xl">{formatINR(totalLiability)}</CardTitle>
-                <p className="text-xs text-muted-foreground">Invested: {formatINR(investedLiability)}</p>
+                <CardTitle className="text-2xl">{formatINR(totalLiabilities)}</CardTitle>
               </CardHeader>
             </Card>
-            <Card className={totalAsset - totalLiability >= 0
+            <Card className={netWorth >= 0
               ? "border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20"
               : "border-red-500/40 bg-red-50/50 dark:bg-red-950/20"
             }>
               <CardHeader>
                 <CardDescription>Net Worth</CardDescription>
-                <CardTitle className={`text-2xl ${totalAsset - totalLiability >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                  {formatINR(totalAsset - totalLiability)}
+                <CardTitle className={`text-2xl ${netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                  {formatINR(netWorth)}
                 </CardTitle>
+                {mom && (
+                  <p className={`text-xs ${mom.change >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {mom.change >= 0 ? "+" : ""}{formatINR(mom.change)} ({mom.change_percent.toFixed(1)}%) vs last month
+                  </p>
+                )}
               </CardHeader>
             </Card>
           </div>
+
+          {/* Asset Distribution */}
+          {assetDistEntries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset Distribution</CardTitle>
+                <CardDescription>Breakdown by asset class</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  {assetDistEntries.map(([key, value]) => (
+                    <Card key={key}>
+                      <CardHeader>
+                        <CardDescription>{ASSET_CLASS_LABELS[key] ?? key}</CardDescription>
+                        <CardTitle className="text-xl">{formatINR(value)}</CardTitle>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Accounts Section */}
           <Card>
@@ -207,7 +231,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Accounts</CardTitle>
-                  <CardDescription>Current value across accounts</CardDescription>
+                  <CardDescription>{accounts.length} active account{accounts.length !== 1 ? "s" : ""}</CardDescription>
                 </div>
                 <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${accountsOpen ? "rotate-180" : ""}`} />
               </div>
@@ -215,61 +239,49 @@ export default function DashboardPage() {
             {accountsOpen && (
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {accounts.map((account) => (
-                    <Card key={account.ID}>
+                  {accounts.filter((a) => a.asset_class !== "liability").map((account) => (
+                    <Card key={account.id}>
                       <CardHeader>
-                        <CardDescription>{account.Name}</CardDescription>
-                        <CardTitle className="text-xl">
-                          {formatINR(account.Amount)}
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">Invested: {formatINR(account.InvestedAmount)}</p>
+                        <CardDescription>{account.name}</CardDescription>
+                        {account.current_amount !== undefined && (
+                          <CardTitle className="text-xl">{formatINR(account.current_amount)}</CardTitle>
+                        )}
+                        <div className="flex items-center gap-2 pt-1">
+                          <Badge variant="secondary">{account.category}</Badge>
+                          <Badge variant="outline">{account.asset_class}</Badge>
+                        </div>
+                        {account.institution && (
+                          <p className="text-xs text-muted-foreground">{account.institution}</p>
+                        )}
                       </CardHeader>
                     </Card>
                   ))}
                 </div>
+                {accounts.some((a) => a.asset_class === "liability") && (
+                  <>
+                    <p className="text-sm font-medium text-muted-foreground">Liabilities</p>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {accounts.filter((a) => a.asset_class === "liability").map((account) => (
+                        <Card key={account.id} className="border-red-500/40 bg-red-50/50 dark:bg-red-950/20">
+                          <CardHeader>
+                            <CardDescription>{account.name}</CardDescription>
+                            {account.current_amount !== undefined && (
+                              <CardTitle className="text-xl text-red-600 dark:text-red-400">{formatINR(account.current_amount)}</CardTitle>
+                            )}
+                            <div className="flex items-center gap-2 pt-1">
+                              <Badge variant="secondary">{account.category}</Badge>
+                            </div>
+                            {account.institution && (
+                              <p className="text-xs text-muted-foreground">{account.institution}</p>
+                            )}
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             )}
-          </Card>
-
-          {/* Recent Transactions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>Last 5 entries</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((tx, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{tx.date}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            tx.type === "Credit" ? "default" : "secondary"
-                          }
-                        >
-                          {tx.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{tx.category}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {tx.amount > 0 ? "+" : ""}
-                        {formatINR(Math.abs(tx.amount))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
           </Card>
         </div>
       </SidebarInset>

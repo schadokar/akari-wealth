@@ -44,6 +44,10 @@ func (u *UseCase) GetAccountSnapshotsByMonth(ctx context.Context, month string) 
 	return u.store.GetAccountSnapshotsByMonth(ctx, month)
 }
 
+func (u *UseCase) GetLatestAccountSnapshotPerAccount(ctx context.Context) (map[int64]model.AccountSnapshotAmounts, error) {
+	return u.store.GetLatestAccountSnapshotPerAccount(ctx)
+}
+
 func (u *UseCase) BulkUpsertHoldingSnapshots(ctx context.Context, reqs []model.HoldingSnapshotRequest) error {
 	months := make(map[string]bool)
 	for _, req := range reqs {
@@ -97,6 +101,10 @@ func (u *UseCase) BulkUpsertCreditCardSnapshots(ctx context.Context, reqs []mode
 
 func (u *UseCase) GetCreditCardSnapshotsByAccountID(ctx context.Context, accountID int64) ([]model.CreditCardSnapshot, error) {
 	return u.store.GetCreditCardSnapshotsByAccountID(ctx, accountID)
+}
+
+func (u *UseCase) GetLatestCreditCardSnapshotPerAccount(ctx context.Context) (map[int64]float64, error) {
+	return u.store.GetLatestCreditCardSnapshotPerAccount(ctx)
 }
 
 // autoGenerateLoanSnapshots creates next-month snapshots for loan accounts:

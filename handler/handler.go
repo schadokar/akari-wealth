@@ -29,6 +29,7 @@ type Service interface {
 	BulkUpsertAccountSnapshots(ctx context.Context, reqs []model.AccountSnapshotRequest) error
 	GetAccountSnapshotsByAccountID(ctx context.Context, accountID int64) ([]model.AccountSnapshot, error)
 	GetAccountSnapshotsByMonth(ctx context.Context, month string) ([]model.AccountSnapshot, error)
+	GetLatestAccountSnapshotPerAccount(ctx context.Context) (map[int64]model.AccountSnapshotAmounts, error)
 
 	// Holding Snapshots
 	BulkUpsertHoldingSnapshots(ctx context.Context, reqs []model.HoldingSnapshotRequest) error
@@ -37,6 +38,10 @@ type Service interface {
 	// Credit Card Snapshots
 	BulkUpsertCreditCardSnapshots(ctx context.Context, reqs []model.CreditCardSnapshotRequest) error
 	GetCreditCardSnapshotsByAccountID(ctx context.Context, accountID int64) ([]model.CreditCardSnapshot, error)
+	GetLatestCreditCardSnapshotPerAccount(ctx context.Context) (map[int64]float64, error)
+
+	// Financial Instruments
+	SearchFinancialInstruments(ctx context.Context, query, instrumentType string, limit int) ([]model.FinancialInstrument, error)
 
 	// Monthly Summary
 	GetMonthlySummary(ctx context.Context, month string) (*model.MonthlySummary, error)
@@ -69,6 +74,7 @@ func cors(next http.Handler) http.Handler {
 
 func (h *Handler) Routes() *chi.Mux {
 	r := chi.NewRouter()
+	r.Use(cors)
 
 	r.Route("/api", func(r chi.Router) {
 		// Accounts
@@ -107,6 +113,9 @@ func (h *Handler) Routes() *chi.Mux {
 			r.Get("/credit-cards/{accountId}", h.getCreditCardSnapshotHistory)
 		})
 
+		// Financial Instruments
+		r.Get("/instruments/search", h.searchInstruments)
+
 		// Monthly Summary
 		r.Get("/summary", h.getMonthlySummaryRange)
 		r.Get("/summary/{month}", h.getMonthlySummary)
@@ -135,35 +144,30 @@ func (h *Handler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	latestAmounts, err := h.svc.GetLatestAccountSnapshotPerAccount(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ccAmounts, err := h.svc.GetLatestCreditCardSnapshotPerAccount(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	resp := make([]model.AccountResponse, 0, len(accounts))
 	for _, a := range accounts {
-		resp = append(resp, toAccountResponse(a))
+		ar := toAccountResponse(a)
+		if amt, ok := latestAmounts[a.ID]; ok {
+			ar.CurrentAmount = &amt.CurrentAmount
+			ar.InvestedAmount = &amt.InvestedAmount
+		} else if amt, ok := ccAmounts[a.ID]; ok {
+			ar.CurrentAmount = &amt
+		}
+		resp = append(resp, ar)
 	}
 	writeJSON(w, http.StatusOK, resp)
-}
-
-func (h *Handler) getLatestAccounts(w http.ResponseWriter, r *http.Request) {
-	accounts, err := h.svc.GetLatestAccounts(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if accounts == nil {
-		accounts = []model.Account{}
-	}
-	writeJSON(w, http.StatusOK, accounts)
-}
-
-func (h *Handler) getAccountSummaryByKind(w http.ResponseWriter, r *http.Request) {
-	summaries, err := h.svc.GetAccountSummaryByKind(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if summaries == nil {
-		summaries = []model.AccountSummaryByKind{}
-	}
-	writeJSON(w, http.StatusOK, summaries)
 }
 
 func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
@@ -446,6 +450,26 @@ func (h *Handler) getMonthlySummaryRange(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, summaries)
 }
 
+// --- Financial Instrument Handlers ---
+
+func (h *Handler) searchInstruments(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	assetClass := r.URL.Query().Get("asset_class")
+	if len(q) < 4 || assetClass == "" {
+		writeJSON(w, http.StatusOK, []model.FinancialInstrument{})
+		return
+	}
+	results, err := h.svc.SearchFinancialInstruments(r.Context(), q, assetClass, 10)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if results == nil {
+		results = []model.FinancialInstrument{}
+	}
+	writeJSON(w, http.StatusOK, results)
+}
+
 // --- Dashboard Handler ---
 
 func (h *Handler) getDashboard(w http.ResponseWriter, r *http.Request) {
@@ -476,8 +500,6 @@ func toAccountResponse(a model.Account) model.AccountResponse {
 		MaturityDate: a.MaturityDate,
 		IsActive:     a.IsActive,
 		Notes:        a.Notes,
-		CreatedAt:    a.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:    a.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
