@@ -5,6 +5,8 @@ import AccountsPage from "./pages/AccountsPage";
 import CheckInPage from "./pages/CheckInPage";
 import HoldingsPage from "./pages/HoldingsPage";
 import HealthPage from "./pages/HealthPage";
+import LoanAnalyserPage from "./pages/LoanAnalyserPage";
+import LoanCalculatorPage from "./pages/LoanCalculatorPage";
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
         <Route path="/checkin" element={<CheckInPage />} />
         <Route path="/holdings" element={<HoldingsPage />} />
         <Route path="/health" element={<HealthPage />} />
+        <Route path="/loans" element={<LoanAnalyserPage />} />
+        <Route path="/loan-calculator" element={<LoanCalculatorPage />} />
       </Routes>
     </BrowserRouter>
   );

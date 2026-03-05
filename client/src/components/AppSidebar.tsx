@@ -9,6 +9,8 @@ import {
   SettingsIcon,
   ClipboardCheckIcon,
   HeartPulseIcon,
+  BanknoteIcon,
+  CalculatorIcon
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,6 +29,8 @@ const navItems = [
   { title: "Accounts", href: "/accounts", icon: LandmarkIcon },
   { title: "Check In", href: "/checkin", icon: ClipboardCheckIcon },
   { title: "Wealth Health", href: "/health", icon: HeartPulseIcon },
+  { title: "Loan Analyser", href: "/loans", icon: BanknoteIcon },
+  { title: "Loan Calculator", href: "/loan-calculator", icon: CalculatorIcon },
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },
