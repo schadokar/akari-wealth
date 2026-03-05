@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     name            TEXT    NOT NULL UNIQUE,
     category        TEXT    NOT NULL CHECK (category IN (
-                        'bank', 'brokerage', 'nps_t1', 'nps_t2', 'epf', 'eps',
+                        'bank', 'brokerage', 'nps', 'nps', 'epf', 'eps',
                         'credit_card', 'loan', 'fd', 'rd', 'ppf', 'ssy', 'cash'
                     )),
     sub_category    TEXT,
@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     institution     TEXT,
     interest_rate   REAL,
     emi_amount      REAL,
+    start_date      TEXT,
+    tenure_months   INTEGER,
     maturity_date   TEXT,
     is_active       INTEGER NOT NULL DEFAULT 1,
     notes           TEXT,
@@ -47,6 +49,8 @@ CREATE TABLE IF NOT EXISTS account_snapshots (
     invested_amount REAL NOT NULL DEFAULT 0,
     current_amount  REAL    NOT NULL,
     is_auto         INTEGER NOT NULL DEFAULT 0,
+    emi_amount      REAL    NOT NULL DEFAULT 0,
+    interest_rate   REAL    NOT NULL DEFAULT 0,
     notes           TEXT,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(account_id, month)

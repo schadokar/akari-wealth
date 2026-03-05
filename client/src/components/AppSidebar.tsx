@@ -8,6 +8,7 @@ import {
   BarChart3Icon,
   SettingsIcon,
   ClipboardCheckIcon,
+  HeartPulseIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -25,6 +26,7 @@ const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Accounts", href: "/accounts", icon: LandmarkIcon },
   { title: "Check In", href: "/checkin", icon: ClipboardCheckIcon },
+  { title: "Wealth Health", href: "/health", icon: HeartPulseIcon },
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },

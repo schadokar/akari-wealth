@@ -15,6 +15,8 @@ func (u *UseCase) CreateAccount(ctx context.Context, req model.CreateAccountRequ
 		Institution:  req.Institution,
 		InterestRate: req.InterestRate,
 		EMIAmount:    req.EMIAmount,
+		StartDate:    req.StartDate,
+		TenureMonths: req.TenureMonths,
 		MaturityDate: req.MaturityDate,
 		IsActive:     true,
 		Notes:        req.Notes,
@@ -56,6 +58,12 @@ func (u *UseCase) UpdateAccount(ctx context.Context, id int64, req model.UpdateA
 	}
 	if req.EMIAmount != nil {
 		existing.EMIAmount = req.EMIAmount
+	}
+	if req.StartDate != nil {
+		existing.StartDate = req.StartDate
+	}
+	if req.TenureMonths != nil {
+		existing.TenureMonths = req.TenureMonths
 	}
 	if req.MaturityDate != nil {
 		existing.MaturityDate = req.MaturityDate

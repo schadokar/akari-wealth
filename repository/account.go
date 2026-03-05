@@ -11,9 +11,9 @@ import (
 
 func (r *Repository) InsertAccount(ctx context.Context, a model.Account) (int64, error) {
 	res, err := r.db.ExecContext(ctx,
-		`INSERT INTO accounts (name, category, sub_category, asset_class, institution, interest_rate, emi_amount, maturity_date, notes)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.Name, a.Category, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.MaturityDate, a.Notes,
+		`INSERT INTO accounts (name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, notes)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.Name, a.Category, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, a.Notes,
 	)
 	if err != nil {
 		return 0, err
@@ -25,9 +25,9 @@ func (r *Repository) GetAccountByID(ctx context.Context, id int64) (*model.Accou
 	var a model.Account
 	var isActive int
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, maturity_date, is_active, notes, created_at, updated_at
+		`SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, is_active, notes, created_at, updated_at
 		 FROM accounts WHERE id = ?`, id,
-	).Scan(&a.ID, &a.Name, &a.Category, &a.SubCategory, &a.AssetClass, &a.Institution, &a.InterestRate, &a.EMIAmount, &a.MaturityDate, &isActive, &a.Notes, &a.CreatedAt, &a.UpdatedAt)
+	).Scan(&a.ID, &a.Name, &a.Category, &a.SubCategory, &a.AssetClass, &a.Institution, &a.InterestRate, &a.EMIAmount, &a.StartDate, &a.TenureMonths, &a.MaturityDate, &isActive, &a.Notes, &a.CreatedAt, &a.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -39,7 +39,7 @@ func (r *Repository) GetAccountByID(ctx context.Context, id int64) (*model.Accou
 }
 
 func (r *Repository) GetAccounts(ctx context.Context, category, assetClass string, isActive *bool) ([]model.Account, error) {
-	query := `SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, maturity_date, is_active, notes, created_at, updated_at FROM accounts`
+	query := `SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, is_active, notes, created_at, updated_at FROM accounts`
 	var conditions []string
 	var args []any
 
@@ -75,7 +75,7 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 	for rows.Next() {
 		var a model.Account
 		var isAct int
-		if err := rows.Scan(&a.ID, &a.Name, &a.Category, &a.SubCategory, &a.AssetClass, &a.Institution, &a.InterestRate, &a.EMIAmount, &a.MaturityDate, &isAct, &a.Notes, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.Category, &a.SubCategory, &a.AssetClass, &a.Institution, &a.InterestRate, &a.EMIAmount, &a.StartDate, &a.TenureMonths, &a.MaturityDate, &isAct, &a.Notes, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		a.IsActive = isAct == 1
@@ -86,9 +86,9 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 
 func (r *Repository) UpdateAccount(ctx context.Context, id int64, a model.Account) error {
 	_, err := r.db.ExecContext(ctx,
-		`UPDATE accounts SET name = ?, sub_category = ?, asset_class = ?, institution = ?, interest_rate = ?, emi_amount = ?, maturity_date = ?, is_active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+		`UPDATE accounts SET name = ?, sub_category = ?, asset_class = ?, institution = ?, interest_rate = ?, emi_amount = ?, start_date = ?, tenure_months = ?, maturity_date = ?, is_active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
 		 WHERE id = ?`,
-		a.Name, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.MaturityDate, boolToInt(a.IsActive), a.Notes, id,
+		a.Name, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, boolToInt(a.IsActive), a.Notes, id,
 	)
 	return err
 }

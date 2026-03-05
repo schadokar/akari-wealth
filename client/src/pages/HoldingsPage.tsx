@@ -190,7 +190,7 @@ export default function HoldingsPage() {
     setShowSuggestions(false);
   };
 
-  const openUpdateDialog = (h: Holding) => {
+  const openUpdateDialog = async (h: Holding) => {
     setUpdateHoldingId(h.id);
     setUpdateName(h.name);
     setUpdateAssetClass(h.asset_class ?? "");
@@ -198,6 +198,17 @@ export default function HoldingsPage() {
     setUpdateInvestedAmount("");
     setUpdateCurrentAmount("");
     setUpdateOpen(true);
+    try {
+      const res = await fetch(`http://localhost:8080/api/snapshots/holdings/${h.id}`);
+      const snapshots = await res.json();
+      if (Array.isArray(snapshots) && snapshots.length > 0) {
+        const latest = snapshots[snapshots.length - 1];
+        setUpdateInvestedAmount(latest.invested_amount != null ? String(latest.invested_amount) : "");
+        setUpdateCurrentAmount(latest.current_amount != null ? String(latest.current_amount) : "");
+      }
+    } catch {
+      // leave fields empty if fetch fails
+    }
   };
 
   const resetUpdateForm = () => {

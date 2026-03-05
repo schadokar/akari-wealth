@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -18,7 +19,15 @@ import (
 	"github.com/perfi/usecase"
 )
 
-const tableName = "perfi"
+var tableName string
+
+func init() {
+	tableName = "perfi"
+	if os.Getenv("DB_NAME") != "" {
+		tableName = os.Getenv("DB_NAME")
+	}
+	log.Println("Connecting to db: ", tableName)
+}
 
 func main() {
 	cleanDB := flag.Bool("clean-db", false, "drop all tables and exit")

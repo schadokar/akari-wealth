@@ -497,6 +497,8 @@ func toAccountResponse(a model.Account) model.AccountResponse {
 		Institution:  a.Institution,
 		InterestRate: a.InterestRate,
 		EMIAmount:    a.EMIAmount,
+		StartDate:    a.StartDate,
+		TenureMonths: a.TenureMonths,
 		MaturityDate: a.MaturityDate,
 		IsActive:     a.IsActive,
 		Notes:        a.Notes,

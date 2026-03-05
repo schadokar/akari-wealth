@@ -45,9 +45,11 @@ type Account struct {
 	SubCategory  *string   `json:"sub_category" db:"sub_category"`
 	AssetClass   string    `json:"asset_class" db:"asset_class"`
 	Institution  *string   `json:"institution" db:"institution"`
-	InterestRate *float64  `json:"interest_rate" db:"interest_rate"`
-	EMIAmount    *float64  `json:"emi_amount" db:"emi_amount"`
-	MaturityDate *string   `json:"maturity_date" db:"maturity_date"`
+	InterestRate  *float64  `json:"interest_rate" db:"interest_rate"`
+	EMIAmount     *float64  `json:"emi_amount" db:"emi_amount"`
+	StartDate     *string   `json:"start_date" db:"start_date"`
+	TenureMonths  *int      `json:"tenure_months" db:"tenure_months"`
+	MaturityDate  *string   `json:"maturity_date" db:"maturity_date"`
 	IsActive     bool      `json:"is_active" db:"is_active"`
 	Notes        *string   `json:"notes" db:"notes"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
@@ -124,6 +126,8 @@ type CreateAccountRequest struct {
 	Institution  *string  `json:"institution"`
 	InterestRate *float64 `json:"interest_rate"`
 	EMIAmount    *float64 `json:"emi_amount"`
+	StartDate    *string  `json:"start_date"`
+	TenureMonths *int     `json:"tenure_months"`
 	MaturityDate *string  `json:"maturity_date"`
 	Notes        *string  `json:"notes"`
 }
@@ -135,6 +139,8 @@ type UpdateAccountRequest struct {
 	Institution  *string  `json:"institution"`
 	InterestRate *float64 `json:"interest_rate"`
 	EMIAmount    *float64 `json:"emi_amount"`
+	StartDate    *string  `json:"start_date"`
+	TenureMonths *int     `json:"tenure_months"`
 	MaturityDate *string  `json:"maturity_date"`
 	IsActive     *bool    `json:"is_active"`
 	Notes        *string  `json:"notes"`
@@ -188,6 +194,8 @@ type AccountResponse struct {
 	Institution    *string  `json:"institution,omitempty"`
 	InterestRate   *float64 `json:"interest_rate,omitempty"`
 	EMIAmount      *float64 `json:"emi_amount,omitempty"`
+	StartDate      *string  `json:"start_date,omitempty"`
+	TenureMonths   *int     `json:"tenure_months,omitempty"`
 	MaturityDate   *string  `json:"maturity_date,omitempty"`
 	IsActive       bool     `json:"is_active"`
 	Notes          *string  `json:"notes,omitempty"`

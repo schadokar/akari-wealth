@@ -55,9 +55,12 @@ interface RowState {
   notes: string;
 }
 
+type Toast = { type: "success" | "error"; text: string };
+
 export default function CheckInPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [liabilities, setLiabilities] = useState<Account[]>([]);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -69,6 +72,11 @@ export default function CheckInPage() {
 
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [viewAccountId, setViewAccountId] = useState<number>(0);
+
+  const showToast = (type: "success" | "error", text: string) => {
+    setToast({ type, text });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchAccounts = () => {
     fetch("http://localhost:8080/api/accounts?is_active=true")
@@ -163,13 +171,18 @@ export default function CheckInPage() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        showToast("success", `Liability snapshots saved for ${month}.`);
         const reset: Record<number, RowState> = {};
         liabilities.forEach((a) => {
           reset[a.id] = { invested: "", current: "", notes: "" };
         });
         setLiabilityRows(reset);
         if (viewAccountId) fetchSnapshots(viewAccountId);
+      } else {
+        showToast("error", "Failed to save liability snapshots. Please try again.");
       }
+    } catch {
+      showToast("error", "Network error. Could not reach the server.");
     } finally {
       setSavingLiabilities(false);
     }
@@ -202,13 +215,18 @@ export default function CheckInPage() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        showToast("success", `Asset snapshots saved for ${month}.`);
         const reset: Record<number, RowState> = {};
         accounts.forEach((a) => {
           reset[a.id] = { invested: "", current: "", notes: "" };
         });
         setRows(reset);
         if (viewAccountId) fetchSnapshots(viewAccountId);
+      } else {
+        showToast("error", "Failed to save snapshots. Please try again.");
       }
+    } catch {
+      showToast("error", "Network error. Could not reach the server.");
     } finally {
       setSaving(false);
     }
@@ -238,6 +256,18 @@ export default function CheckInPage() {
         </header>
 
         <div className="flex-1 space-y-6 p-6">
+          {toast && (
+            <div
+              className={`rounded-md px-4 py-3 text-sm font-medium ${
+                toast.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {toast.text}
+            </div>
+          )}
+
           {/* Record Asset Snapshots */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

@@ -61,8 +61,14 @@ const CATEGORY_TO_ASSET_CLASS: Record<string, string> = {
   cash: "cash",
 };
 
+// Categories that show EMI amount field
 const EMI_CATEGORIES = new Set(["loan"]);
+// Categories that show maturity date field
 const MATURITY_DATE_CATEGORIES = new Set(["fd", "rd", "ppf", "ssy", "loan"]);
+// Categories that show start date field (disbursement date for loan, opening date for FD/RD/PPF)
+const START_DATE_CATEGORIES = new Set(["loan", "fd", "rd", "ppf"]);
+// Categories that show tenure field (duration in months)
+const TENURE_CATEGORIES = new Set(["loan", "fd", "rd", "ppf"]);
 
 const ASSET_CLASSES = [
   { value: "asset", label: "Asset" },
@@ -83,11 +89,15 @@ interface Account {
   institution?: string;
   interest_rate?: number;
   emi_amount?: number;
+  start_date?: string;
+  tenure_months?: number;
   maturity_date?: string;
   is_active: boolean;
   notes?: string;
   created_at: string;
   updated_at: string;
+  invested_amount?: number;
+  current_amount?: number;
 }
 
 const categoryLabel = (value: string) =>
@@ -96,8 +106,11 @@ const categoryLabel = (value: string) =>
 const assetClassLabel = (value: string) =>
   ASSET_CLASSES.find((c) => c.value === value)?.label ?? value;
 
+type Toast = { type: "success" | "error"; text: string };
+
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [toast, setToast] = useState<Toast | null>(null);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("bank");
   const [submitting, setSubmitting] = useState(false);
@@ -105,8 +118,12 @@ export default function AccountsPage() {
   const [createInstitution, setCreateInstitution] = useState("");
   const [createInterestRate, setCreateInterestRate] = useState("");
   const [createEmiAmount, setCreateEmiAmount] = useState("");
+  const [createStartDate, setCreateStartDate] = useState("");
+  const [createTenureMonths, setCreateTenureMonths] = useState("");
   const [createMaturityDate, setCreateMaturityDate] = useState("");
   const [createNotes, setCreateNotes] = useState("");
+  const [createLoanAmount, setCreateLoanAmount] = useState("");
+  const [createOutstandingAmount, setCreateOutstandingAmount] = useState("");
 
   // Update Account state
   const [updateAccountId, setUpdateAccountId] = useState<number>(0);
@@ -116,10 +133,19 @@ export default function AccountsPage() {
   const [updateInstitution, setUpdateInstitution] = useState("");
   const [updateInterestRate, setUpdateInterestRate] = useState("");
   const [updateEmiAmount, setUpdateEmiAmount] = useState("");
+  const [updateStartDate, setUpdateStartDate] = useState("");
+  const [updateTenureMonths, setUpdateTenureMonths] = useState("");
   const [updateMaturityDate, setUpdateMaturityDate] = useState("");
   const [updateNotes, setUpdateNotes] = useState("");
+  const [updateLoanAmount, setUpdateLoanAmount] = useState("");
+  const [updateOutstandingAmount, setUpdateOutstandingAmount] = useState("");
 
   const selectedUpdateAccount = accounts.find((a) => a.id === updateAccountId);
+
+  const showToast = (type: "success" | "error", text: string) => {
+    setToast({ type, text });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchAccounts = () => {
     fetch("http://localhost:8080/api/accounts")
@@ -130,6 +156,29 @@ export default function AccountsPage() {
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  // Auto-calculate maturity date from start date + tenure for create form
+  useEffect(() => {
+    if (createStartDate && createTenureMonths) {
+      const date = new Date(createStartDate);
+      date.setMonth(date.getMonth() + parseInt(createTenureMonths));
+      setCreateMaturityDate(date.toISOString().split("T")[0]);
+    }
+  }, [createStartDate, createTenureMonths]);
+
+  // Auto-calculate maturity date from start date + tenure for update form
+  useEffect(() => {
+    if (updateStartDate && updateTenureMonths) {
+      const date = new Date(updateStartDate);
+      date.setMonth(date.getMonth() + parseInt(updateTenureMonths));
+      setUpdateMaturityDate(date.toISOString().split("T")[0]);
+    }
+  }, [updateStartDate, updateTenureMonths]);
+
+  const currentMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,21 +196,48 @@ export default function AccountsPage() {
           institution: createInstitution.trim() || undefined,
           interest_rate: createInterestRate ? parseFloat(createInterestRate) : undefined,
           emi_amount: createEmiAmount ? parseFloat(createEmiAmount) : undefined,
+          start_date: createStartDate || undefined,
+          tenure_months: createTenureMonths ? parseInt(createTenureMonths) : undefined,
           maturity_date: createMaturityDate || undefined,
           notes: createNotes.trim() || undefined,
         }),
       });
       if (res.ok) {
+        const { id } = await res.json();
+        if (category === "loan" && (createLoanAmount || createOutstandingAmount)) {
+          await fetch("http://localhost:8080/api/snapshots/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify([{
+              account_id: id,
+              month: currentMonth(),
+              invested_amount: createLoanAmount ? parseFloat(createLoanAmount) : 0,
+              current_amount: createOutstandingAmount ? parseFloat(createOutstandingAmount) : 0,
+              emi_amount: createEmiAmount ? parseFloat(createEmiAmount) : 0,
+              interest_rate: createInterestRate ? parseFloat(createInterestRate) : 0,
+              notes: null,
+            }]),
+          });
+        }
+        showToast("success", `Account "${name.trim()}" created successfully.`);
         setName("");
         setCategory("bank");
         setShowCreateExtra(false);
         setCreateInstitution("");
         setCreateInterestRate("");
         setCreateEmiAmount("");
+        setCreateStartDate("");
+        setCreateTenureMonths("");
         setCreateMaturityDate("");
         setCreateNotes("");
+        setCreateLoanAmount("");
+        setCreateOutstandingAmount("");
         fetchAccounts();
+      } else {
+        showToast("error", "Failed to create account. Please try again.");
       }
+    } catch {
+      showToast("error", "Network error. Could not reach the server.");
     } finally {
       setSubmitting(false);
     }
@@ -183,44 +259,78 @@ export default function AccountsPage() {
             institution: updateInstitution.trim() || undefined,
             interest_rate: updateInterestRate ? parseFloat(updateInterestRate) : undefined,
             emi_amount: updateEmiAmount ? parseFloat(updateEmiAmount) : undefined,
+            start_date: updateStartDate || undefined,
+            tenure_months: updateTenureMonths ? parseInt(updateTenureMonths) : undefined,
             maturity_date: updateMaturityDate || undefined,
             notes: updateNotes.trim() || undefined,
           }),
         }
       );
       if (res.ok) {
+        if (selectedUpdateAccount.category === "loan" && (updateLoanAmount || updateOutstandingAmount)) {
+          await fetch("http://localhost:8080/api/snapshots/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify([{
+              account_id: updateAccountId,
+              month: currentMonth(),
+              invested_amount: updateLoanAmount ? parseFloat(updateLoanAmount) : 0,
+              current_amount: updateOutstandingAmount ? parseFloat(updateOutstandingAmount) : 0,
+              emi_amount: updateEmiAmount ? parseFloat(updateEmiAmount) : 0,
+              interest_rate: updateInterestRate ? parseFloat(updateInterestRate) : 0,
+              notes: null,
+            }]),
+          });
+        }
+        showToast("success", `Account "${selectedUpdateAccount.name}" updated successfully.`);
         setUpdateAccountId(0);
         setUpdateName("");
         setShowUpdateExtra(false);
         setUpdateInstitution("");
         setUpdateInterestRate("");
         setUpdateEmiAmount("");
+        setUpdateStartDate("");
+        setUpdateTenureMonths("");
         setUpdateMaturityDate("");
         setUpdateNotes("");
+        setUpdateLoanAmount("");
+        setUpdateOutstandingAmount("");
         fetchAccounts();
+      } else {
+        showToast("error", "Failed to update account. Please try again.");
       }
+    } catch {
+      showToast("error", "Network error. Could not reach the server.");
     } finally {
       setUpdating(false);
     }
   };
 
   const handleDelete = async (id: number) => {
+    const acc = accounts.find((a) => a.id === id);
     const res = await fetch(`http://localhost:8080/api/accounts/${id}`, {
       method: "DELETE",
     });
     if (res.ok) {
+      showToast("success", `Account "${acc?.name}" deactivated.`);
       fetchAccounts();
+    } else {
+      showToast("error", "Failed to deactivate account.");
     }
   };
 
   const handleActivate = async (id: number) => {
+    const acc = accounts.find((a) => a.id === id);
     const res = await fetch(`http://localhost:8080/api/accounts/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: true }),
     });
     if (res.ok) {
+      showToast("success", `Account "${acc?.name}" activated.`);
       fetchAccounts();
+    } else {
+      showToast("error", "Failed to activate account.");
     }
   };
 
@@ -235,6 +345,18 @@ export default function AccountsPage() {
         </header>
 
         <div className="flex-1 space-y-6 p-6">
+          {toast && (
+            <div
+              className={`rounded-md px-4 py-3 text-sm font-medium ${
+                toast.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {toast.text}
+            </div>
+          )}
+
           {/* Create Account */}
           <Card>
             <CardHeader>
@@ -305,6 +427,30 @@ export default function AccountsPage() {
                         onChange={(e) => setCreateInterestRate(e.target.value)}
                       />
                     </div>
+                    {/* Start date: disbursement date for loan, opening date for FD/RD/PPF */}
+                    {START_DATE_CATEGORIES.has(category) && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Start Date</label>
+                        <Input
+                          type="date"
+                          value={createStartDate}
+                          onChange={(e) => setCreateStartDate(e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {/* Tenure: duration in months (e.g. 240 for 20-year loan, 12 for 1-year FD) */}
+                    {TENURE_CATEGORIES.has(category) && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tenure (months)</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 240"
+                          value={createTenureMonths}
+                          onChange={(e) => setCreateTenureMonths(e.target.value)}
+                        />
+                      </div>
+                    )}
                     {EMI_CATEGORIES.has(category) && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium">EMI Amount</label>
@@ -323,8 +469,31 @@ export default function AccountsPage() {
                           type="date"
                           value={createMaturityDate}
                           onChange={(e) => setCreateMaturityDate(e.target.value)}
+                          disabled={true}
                         />
                       </div>
+                    )}
+                    {category === "loan" && (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Loan Amount</label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 10,00,000"
+                            value={fmtAmt(createLoanAmount)}
+                            onChange={(e) => setCreateLoanAmount(rawAmt(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Outstanding Amount</label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 8,50,000"
+                            value={fmtAmt(createOutstandingAmount)}
+                            onChange={(e) => setCreateOutstandingAmount(rawAmt(e.target.value))}
+                          />
+                        </div>
+                      </>
                     )}
                     <div className="space-y-2 sm:col-span-4">
                       <label className="text-sm font-medium">Notes</label>
@@ -373,19 +542,32 @@ export default function AccountsPage() {
                           setUpdateInstitution(acc.institution ?? "");
                           setUpdateInterestRate(acc.interest_rate?.toString() ?? "");
                           setUpdateEmiAmount(acc.emi_amount?.toString() ?? "");
+                          setUpdateStartDate(acc.start_date ?? "");
+                          setUpdateTenureMonths(acc.tenure_months?.toString() ?? "");
                           setUpdateMaturityDate(acc.maturity_date ?? "");
                           setUpdateNotes(acc.notes ?? "");
+                          setUpdateLoanAmount(acc.invested_amount?.toString() ?? "");
+                          setUpdateOutstandingAmount(acc.current_amount?.toString() ?? "");
                         }
                       }}
                       className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                       required
                     >
                       <option value={0} disabled>Select an account</option>
-                      {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
+                      {accounts.filter((a) => a.asset_class !== "liability").length > 0 && (
+                        <optgroup label="Assets">
+                          {accounts.filter((a) => a.asset_class !== "liability").map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {accounts.filter((a) => a.asset_class === "liability").length > 0 && (
+                        <optgroup label="Liabilities">
+                          {accounts.filter((a) => a.asset_class === "liability").map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -446,6 +628,30 @@ export default function AccountsPage() {
                         onChange={(e) => setUpdateInterestRate(e.target.value)}
                       />
                     </div>
+                    {/* Start date: disbursement date for loan, opening date for FD/RD/PPF */}
+                    {START_DATE_CATEGORIES.has(selectedUpdateAccount?.category ?? "") && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Start Date</label>
+                        <Input
+                          type="date"
+                          value={updateStartDate}
+                          onChange={(e) => setUpdateStartDate(e.target.value)}
+                        />
+                      </div>
+                    )}
+                    {/* Tenure: duration in months (e.g. 240 for 20-year loan, 12 for 1-year FD) */}
+                    {TENURE_CATEGORIES.has(selectedUpdateAccount?.category ?? "") && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tenure (months)</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 240"
+                          value={updateTenureMonths}
+                          onChange={(e) => setUpdateTenureMonths(e.target.value)}
+                        />
+                      </div>
+                    )}
                     {EMI_CATEGORIES.has(selectedUpdateAccount?.category ?? "") && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium">EMI Amount</label>
@@ -464,8 +670,31 @@ export default function AccountsPage() {
                           type="date"
                           value={updateMaturityDate}
                           onChange={(e) => setUpdateMaturityDate(e.target.value)}
+                          disabled={true}
                         />
                       </div>
+                    )}
+                    {selectedUpdateAccount?.category === "loan" && (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Loan Amount</label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 10,00,000"
+                            value={fmtAmt(updateLoanAmount)}
+                            onChange={(e) => setUpdateLoanAmount(rawAmt(e.target.value))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Outstanding Amount</label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 8,50,000"
+                            value={fmtAmt(updateOutstandingAmount)}
+                            onChange={(e) => setUpdateOutstandingAmount(rawAmt(e.target.value))}
+                          />
+                        </div>
+                      </>
                     )}
                     <div className="space-y-2 sm:col-span-4">
                       <label className="text-sm font-medium">Notes</label>
