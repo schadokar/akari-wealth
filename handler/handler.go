@@ -16,7 +16,7 @@ import (
 type Service interface {
 	// Auth
 	Login(ctx context.Context, username, password string) (string, error)
-	Register(ctx context.Context, username, password string) error
+	Register(ctx context.Context, username, password string) (string, error)
 
 	// Accounts
 	CreateAccount(ctx context.Context, req model.CreateAccountRequest) (int64, error)
@@ -71,6 +71,13 @@ type Service interface {
 	GetPayslipsByEmploymentID(ctx context.Context, employmentID int64) ([]model.Payslip, error)
 	UpdatePayslip(ctx context.Context, id int64, req model.UpdatePayslipRequest) error
 	DeletePayslip(ctx context.Context, id int64) error
+
+	// Insurances
+	CreateInsurance(ctx context.Context, req model.CreateInsuranceRequest) (int64, error)
+	GetInsuranceByID(ctx context.Context, id int64) (*model.Insurance, error)
+	GetInsurances(ctx context.Context) ([]model.Insurance, error)
+	UpdateInsurance(ctx context.Context, id int64, req model.UpdateInsuranceRequest) error
+	DeleteInsurance(ctx context.Context, id int64) error
 
 	// Goals
 	CreateGoal(ctx context.Context, req model.CreateGoalRequest) (int64, error)
@@ -210,6 +217,15 @@ func (h *Handler) Routes() *chi.Mux {
 				r.Put("/{id}", h.updateGoal)
 				r.Delete("/{id}", h.deleteGoal)
 				r.Put("/{id}/mappings", h.updateGoalMappings)
+			})
+
+			// Insurances
+			r.Route("/insurances", func(r chi.Router) {
+				r.Get("/", h.listInsurances)
+				r.Post("/", h.createInsurance)
+				r.Get("/{id}", h.getInsurance)
+				r.Put("/{id}", h.updateInsurance)
+				r.Delete("/{id}", h.deleteInsurance)
 			})
 		})
 	})
@@ -595,11 +611,12 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.Register(r.Context(), req.Username, req.Password); err != nil {
+	token, err := h.svc.Register(r.Context(), req.Username, req.Password)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, http.StatusCreated, model.RegisterResponse{Token: token})
 }
 
 // --- Dashboard Handler ---
@@ -911,6 +928,80 @@ func (h *Handler) updateGoalMappings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.UpdateGoalMappings(r.Context(), id, mappings); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Insurance Handlers ---
+
+func (h *Handler) listInsurances(w http.ResponseWriter, r *http.Request) {
+	insurances, err := h.svc.GetInsurances(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, insurances)
+}
+
+func (h *Handler) createInsurance(w http.ResponseWriter, r *http.Request) {
+	var req model.CreateInsuranceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	id, err := h.svc.CreateInsurance(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) getInsurance(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	ins, err := h.svc.GetInsuranceByID(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if ins == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "insurance not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, ins)
+}
+
+func (h *Handler) updateInsurance(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var req model.UpdateInsuranceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdateInsurance(r.Context(), id, req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deleteInsurance(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.svc.DeleteInsurance(r.Context(), id); err != nil {
 		writeError(w, err)
 		return
 	}

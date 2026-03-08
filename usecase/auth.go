@@ -9,16 +9,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (u *UseCase) Register(ctx context.Context, username, password string) error {
+func (u *UseCase) Register(ctx context.Context, username, password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = u.store.InsertUser(ctx, model.User{
+	id, err := u.store.InsertUser(ctx, model.User{
 		Username:     username,
 		PasswordHash: string(hash),
 	})
-	return err
+	if err != nil {
+		return "", err
+	}
+	return auth.SignToken(id)
 }
 
 func (u *UseCase) Login(ctx context.Context, username, password string) (string, error) {

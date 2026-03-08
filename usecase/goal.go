@@ -122,10 +122,10 @@ func (u *UseCase) UpdateGoalMappings(ctx context.Context, goalID int64, inputs [
 	return u.store.ReplaceGoalMappings(ctx, goalID, mappings)
 }
 
-// validateMappingWeights returns an error if mappings are empty or their weights don't sum to 1.0.
+// validateMappingWeights returns an error if mapping weights don't sum to 1.0 (empty mappings are allowed).
 func validateMappingWeights(mappings []model.GoalMappingInput) error {
 	if len(mappings) == 0 {
-		return model.ErrValidation
+		return nil
 	}
 	var total float64
 	for _, m := range mappings {

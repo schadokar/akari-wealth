@@ -45,6 +45,24 @@ const (
 	InstrumentMutualFund = "mutual_fund"
 )
 
+// Insurance policy type constants
+const (
+	InsuranceTypeHealth          = "health"
+	InsuranceTypeTermLife        = "term_life"
+	InsuranceTypeCriticalIllness = "critical_illness"
+	InsuranceTypeDisability      = "disability"
+	InsuranceTypeVehicle         = "vehicle"
+	InsuranceTypeHome            = "home"
+	InsuranceTypeOther           = "other"
+)
+
+// Premium frequency constants
+const (
+	PremiumFreqMonthly   = "monthly"
+	PremiumFreqQuarterly = "quarterly"
+	PremiumFreqAnnual    = "annual"
+)
+
 // Goal constants
 const (
 	GoalStatusActive   = "active"
@@ -68,6 +86,10 @@ type RegisterRequest struct {
 }
 
 type LoginResponse struct {
+	Token string `json:"token"`
+}
+
+type RegisterResponse struct {
 	Token string `json:"token"`
 }
 
@@ -491,4 +513,58 @@ type UpdatePayslipRequest struct {
 	LoanRecovery          *float64 `json:"loan_recovery"`
 	OtherDeduction        *float64 `json:"other_deduction"`
 	Notes                 *string  `json:"notes"`
+}
+
+// --- Insurance DB Model ---
+
+type Insurance struct {
+	ID                 int64     `json:"id" db:"id"`
+	PolicyType         string    `json:"policy_type" db:"policy_type"`
+	Insurer            string    `json:"insurer" db:"insurer"`
+	PolicyNumber       *string   `json:"policy_number,omitempty" db:"policy_number"`
+	SumAssured         float64   `json:"sum_assured" db:"sum_assured"`
+	PremiumAmount      float64   `json:"premium_amount" db:"premium_amount"`
+	PremiumFrequency   string    `json:"premium_frequency" db:"premium_frequency"`
+	StartDate          string    `json:"start_date" db:"start_date"`
+	EndDate            *string   `json:"end_date,omitempty" db:"end_date"`
+	MaturityDate       *string   `json:"maturity_date,omitempty" db:"maturity_date"`
+	Nominees           *string   `json:"nominees,omitempty" db:"nominees"`
+	IsEmployerProvided bool      `json:"is_employer_provided" db:"is_employer_provided"`
+	IsActive           bool      `json:"is_active" db:"is_active"`
+	Notes              *string   `json:"notes,omitempty" db:"notes"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// --- Insurance Request DTOs ---
+
+type CreateInsuranceRequest struct {
+	PolicyType         string  `json:"policy_type"`
+	Insurer            string  `json:"insurer"`
+	PolicyNumber       *string `json:"policy_number"`
+	SumAssured         float64 `json:"sum_assured"`
+	PremiumAmount      float64 `json:"premium_amount"`
+	PremiumFrequency   string  `json:"premium_frequency"`
+	StartDate          string  `json:"start_date"`
+	EndDate            *string `json:"end_date"`
+	MaturityDate       *string `json:"maturity_date"`
+	Nominees           *string `json:"nominees"`
+	IsEmployerProvided bool    `json:"is_employer_provided"`
+	Notes              *string `json:"notes"`
+}
+
+type UpdateInsuranceRequest struct {
+	PolicyType         *string  `json:"policy_type"`
+	Insurer            *string  `json:"insurer"`
+	PolicyNumber       *string  `json:"policy_number"`
+	SumAssured         *float64 `json:"sum_assured"`
+	PremiumAmount      *float64 `json:"premium_amount"`
+	PremiumFrequency   *string  `json:"premium_frequency"`
+	StartDate          *string  `json:"start_date"`
+	EndDate            *string  `json:"end_date"`
+	MaturityDate       *string  `json:"maturity_date"`
+	Nominees           *string  `json:"nominees"`
+	IsEmployerProvided *bool    `json:"is_employer_provided"`
+	IsActive           *bool    `json:"is_active"`
+	Notes              *string  `json:"notes"`
 }

@@ -67,6 +67,13 @@ type Store interface {
 	UpdatePayslip(ctx context.Context, id int64, p model.Payslip) error
 	DeletePayslip(ctx context.Context, id int64) error
 
+	// Insurances
+	InsertInsurance(ctx context.Context, ins model.Insurance) (int64, error)
+	GetInsuranceByID(ctx context.Context, id int64) (*model.Insurance, error)
+	GetInsurances(ctx context.Context) ([]model.Insurance, error)
+	UpdateInsurance(ctx context.Context, id int64, ins model.Insurance) error
+	DeleteInsurance(ctx context.Context, id int64) error
+
 	// Goals
 	InsertGoal(ctx context.Context, g model.Goal) (int64, error)
 	GetGoalByID(ctx context.Context, id int64) (*model.Goal, error)

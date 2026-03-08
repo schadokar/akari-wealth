@@ -254,15 +254,15 @@ def seed(conn: sqlite3.Connection):
     # 9. Goals + Mappings
     # ------------------------------------------------------------------
     goals = [
-        # (name, target_amount, status, notes)
-        ("Emergency Fund",        600000,   "active",   "6 months of expenses in liquid savings"),
-        ("Home Loan Prepayment",  2000000,  "active",   "Reduce principal on HDFC Home Loan"),
-        ("Retirement Corpus",     50000000, "active",   "Long-term equity + MF wealth building"),
-        ("Vacation – Europe",     350000,   "active",   "Europe trip planned for late 2027"),
+        # (name, target_amount, status, priority, target_date, notes)
+        ("Emergency Fund",        600000,   "active",   1, "2026-12-31", "6 months of expenses in liquid savings"),
+        ("Home Loan Prepayment",  2000000,  "active",   2, "2028-06-01", "Reduce principal on HDFC Home Loan"),
+        ("Retirement Corpus",     50000000, "active",   3, "2050-01-01", "Long-term equity + MF wealth building"),
+        ("Vacation – Europe",     350000,   "active",   4, "2027-10-01", "Europe trip planned for late 2027"),
     ]
 
     cur.executemany(
-        "INSERT OR IGNORE INTO goals (user_id, name, target_amount, status, notes) VALUES (?,?,?,?,?)",
+        "INSERT OR IGNORE INTO goals (user_id, name, target_amount, status, priority, target_date, notes) VALUES (?,?,?,?,?,?,?)",
         [(user_id, *g) for g in goals],
     )
     cur.execute("SELECT id, name FROM goals WHERE name IN ({})".format(",".join("?" * len(goals))),
@@ -297,6 +297,27 @@ def seed(conn: sqlite3.Connection):
         goal_mappings,
     )
 
+    # ------------------------------------------------------------------
+    # 10. Insurances
+    # ------------------------------------------------------------------
+    # (user_id, policy_type, insurer, policy_number, sum_assured, premium_amount,
+    #  premium_frequency, start_date, end_date, maturity_date, nominees,
+    #  is_employer_provided, is_active, notes)
+    insurances = [
+        (user_id, "health",           "Star Health Insurance", "SH-2024-001234", 1000000,  18500, "annual", "2024-01-15", None,         None, "Akira",  0, 1, "Individual health cover ₹10L"),
+        (user_id, "term_life",        "LIC",                  "LIC-TRM-789456", 20000000, 22000, "annual", "2023-06-01", "2053-06-01", None, "Spouse", 0, 1, "Term plan 30yr — ₹2Cr cover"),
+        (user_id, "critical_illness", "HDFC Ergo",            "HE-CI-456789",   2500000,  8500,  "annual", "2024-04-01", None,         None, "Spouse", 0, 1, "CI rider — 36 listed illnesses"),
+    ]
+
+    cur.executemany(
+        """INSERT OR IGNORE INTO insurances
+           (user_id, policy_type, insurer, policy_number, sum_assured, premium_amount,
+            premium_frequency, start_date, end_date, maturity_date, nominees,
+            is_employer_provided, is_active, notes)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        insurances,
+    )
+
     conn.commit()
     print(f"Seeded user 'akira' (id={user_id}), {len(accounts)} accounts, {len(holdings)} holdings, "
           f"{len(all_acc_snapshots)} account snapshots, "
@@ -304,7 +325,8 @@ def seed(conn: sqlite3.Connection):
           f"{len(all_cc_snapshots)} credit card snapshots, "
           f"{len(summaries)} monthly summaries, "
           f"{len(employments)} employments, {len(all_payslips)} payslips, "
-          f"{len(goals)} goals, {len(goal_mappings)} goal mappings.")
+          f"{len(goals)} goals, {len(goal_mappings)} goal mappings, "
+          f"{len(insurances)} insurances.")
 
 
 if __name__ == "__main__":

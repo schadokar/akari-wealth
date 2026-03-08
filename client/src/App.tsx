@@ -12,6 +12,8 @@ import LoanCalculatorPage from "./pages/LoanCalculatorPage";
 import SalaryPage from "./pages/SalaryPage";
 import TaxationPage from "./pages/TaxationPage";
 import GoalsPage from "./pages/GoalsPage";
+import InsurancePage from "./pages/InsurancePage";
+import OnboardingPage from "./pages/OnboardingPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token");
@@ -28,6 +30,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/accounts" element={<ProtectedRoute><AccountsPage /></ProtectedRoute>} />
         <Route path="/checkin" element={<ProtectedRoute><CheckInPage /></ProtectedRoute>} />
@@ -38,6 +41,7 @@ function App() {
         <Route path="/salary" element={<ProtectedRoute><SalaryPage /></ProtectedRoute>} />
         <Route path="/taxation" element={<ProtectedRoute><TaxationPage /></ProtectedRoute>} />
         <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+        <Route path="/insurance" element={<ProtectedRoute><InsurancePage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

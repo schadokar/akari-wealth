@@ -15,6 +15,7 @@ import {
   BriefcaseIcon,
   ReceiptIcon,
   FlagIcon,
+  ShieldIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,6 +41,7 @@ const navItems = [
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Goals", href: "/goals", icon: FlagIcon },
+  { title: "Insurance", href: "/insurance", icon: ShieldIcon },
   { title: "Salary", href: "/salary", icon: BriefcaseIcon },
   { title: "Taxation", href: "/taxation", icon: ReceiptIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },

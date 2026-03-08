@@ -677,6 +677,7 @@ export default function GoalsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [sortBy, setSortBy] = useState<"priority" | "target_date">("priority");
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -760,6 +761,17 @@ export default function GoalsPage() {
     }
   }, [goals, progressMap, loadData]);
 
+  const sortedGoals = useMemo(() => {
+    return [...goals].sort((a, b) => {
+      if (sortBy === "priority") return a.priority - b.priority;
+      // sort by target_date: goals without a date go to the end
+      if (!a.target_date && !b.target_date) return 0;
+      if (!a.target_date) return 1;
+      if (!b.target_date) return -1;
+      return a.target_date.localeCompare(b.target_date);
+    });
+  }, [goals, sortBy]);
+
   // KPIs
   const totalGoals = goals.length;
   const activeCount = goals.filter((g) => g.status === "active").length;
@@ -829,110 +841,152 @@ export default function GoalsPage() {
         <div className="flex-1 space-y-6 p-6">
 
           {/* ── KPI Row ── */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center gap-1.5">
-                  <TargetIcon className="size-3.5" /> Total Goals
-                </CardDescription>
-                <CardTitle className="text-4xl">{totalGoals}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-emerald-500 inline-block" />
-                    {activeCount} active
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="size-2 rounded-full bg-blue-500 inline-block" />
-                    {achievedCount} achieved
-                  </span>
-                  {pausedCount > 0 && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Column 1: KPI cards 2×2 + Overall Progress */}
+            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Card>
+                <CardHeader className="pb-1">
+                  <CardDescription className="flex items-center gap-1.5">
+                    <TargetIcon className="size-3.5" /> Total Goals
+                  </CardDescription>
+                  <CardTitle className="text-3xl">{totalGoals}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-muted-foreground inline-block" />
-                      {pausedCount} paused
+                      <span className="size-2 rounded-full bg-emerald-500 inline-block" />
+                      {activeCount} active
                     </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    <span className="flex items-center gap-1">
+                      <span className="size-2 rounded-full bg-blue-500 inline-block" />
+                      {achievedCount} achieved
+                    </span>
+                    {pausedCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        <span className="size-2 rounded-full bg-muted-foreground inline-block" />
+                        {pausedCount} paused
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card className="border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20">
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                  <CheckCircle2Icon className="size-3.5" /> Achieved
-                </CardDescription>
-                <CardTitle className="text-4xl text-emerald-600 dark:text-emerald-400">
-                  {achievedCount}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  {achievedCount} of {totalGoals} goals completed
-                </p>
-              </CardContent>
-            </Card>
+              {(() => {
+                const achievedPct = totalGoals > 0 ? (achievedCount / totalGoals) * 100 : 0;
+                const cardClass = achievedPct === 100
+                  ? "border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20"
+                  : achievedPct >= 50
+                  ? "border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-950/20"
+                  : "";
+                const textClass = achievedPct === 100
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : achievedPct >= 50
+                  ? "text-yellow-700 dark:text-yellow-400"
+                  : "text-muted-foreground";
+                const titleClass = achievedPct === 100
+                  ? "text-3xl text-emerald-600 dark:text-emerald-400"
+                  : achievedPct >= 50
+                  ? "text-3xl text-yellow-600 dark:text-yellow-400"
+                  : "text-3xl";
+                return (
+                  <Card className={cardClass}>
+                    <CardHeader className="pb-1">
+                      <CardDescription className={`flex items-center gap-1.5 ${textClass}`}>
+                        <CheckCircle2Icon className="size-3.5" /> Achieved
+                      </CardDescription>
+                      <CardTitle className={titleClass}>
+                        {achievedCount}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-muted-foreground">
+                        {achievedCount} of {totalGoals} goals completed
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
+              <Card>
+                <CardHeader className="pb-1">
+                  <CardDescription>Total Invested</CardDescription>
+                  <CardTitle className="text-xl">{formatCompact(totalInvested)}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground">{formatINR(totalInvested)}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-violet-500/40 bg-violet-50/50 dark:bg-violet-950/20">
+                <CardHeader className="pb-1">
+                  <CardDescription className="flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
+                    <CalendarIcon className="size-3.5" /> Monthly Required
+                  </CardDescription>
+                  <CardTitle className="text-xl text-violet-700 dark:text-violet-300">
+                    {totalMonthlyRequired > 0 ? formatCompact(totalMonthlyRequired) : "—"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground">
+                    {totalMonthlyRequired > 0
+                      ? `${formatINR(totalMonthlyRequired)}/mo across active goals`
+                      : "Set target dates to calculate"}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+              {/* Overall Progress */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrophyIcon className="size-5 text-amber-500" />
+                        Overall Progress
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        {formatINR(totalCurrent)} accumulated · {formatINR(totalTarget - totalCurrent)} remaining
+                      </CardDescription>
+                    </div>
+                    <span className={`text-3xl font-bold ${overallPct >= 75 ? "text-emerald-600 dark:text-emerald-400" : overallPct >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
+                      {overallPct.toFixed(1)}%
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${progressBarColor(overallPct)}`}
+                      style={{ width: `${overallPct}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                    <span>Target: {formatINR(totalTarget)}</span>
+                    <span>{onTrackCount} of {totalGoals} goals ≥ 50%</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Column 2: Priority reference */}
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Total Invested</CardDescription>
-                <CardTitle className="text-2xl">{formatCompact(totalInvested)}</CardTitle>
+                <CardTitle className="text-sm">Goal Priority Guide</CardTitle>
+                <CardDescription>Reference for setting goal priorities</CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">{formatINR(totalInvested)}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-violet-500/40 bg-violet-50/50 dark:bg-violet-950/20">
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
-                  <CalendarIcon className="size-3.5" /> Monthly Required
-                </CardDescription>
-                <CardTitle className="text-2xl text-violet-700 dark:text-violet-300">
-                  {totalMonthlyRequired > 0 ? formatCompact(totalMonthlyRequired) : "—"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  {totalMonthlyRequired > 0
-                    ? `${formatINR(totalMonthlyRequired)}/mo across active goals`
-                    : "Set target dates to calculate"}
-                </p>
+              <CardContent className="space-y-2">
+                {Object.entries(PRIORITY_LEVELS).map(([lvl, meta]) => (
+                  <div key={lvl} className={`rounded border px-2.5 py-2 ${meta.color}`}>
+                    <p className="text-xs font-semibold">{meta.short}</p>
+                    <p className="text-[11px] opacity-80 mt-0.5 leading-snug">{meta.description}</p>
+                    <p className="text-[10px] italic opacity-70 mt-0.5">e.g. {meta.examples}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
-
-          {/* ── Overall Progress ── */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrophyIcon className="size-5 text-amber-500" />
-                    Overall Progress
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    {formatINR(totalCurrent)} accumulated · {formatINR(totalTarget - totalCurrent)} remaining
-                  </CardDescription>
-                </div>
-                <span className={`text-3xl font-bold ${overallPct >= 75 ? "text-emerald-600 dark:text-emerald-400" : overallPct >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-500"}`}>
-                  {overallPct.toFixed(1)}%
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all duration-700 ${progressBarColor(overallPct)}`}
-                  style={{ width: `${overallPct}%` }}
-                />
-              </div>
-              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                <span>Target: {formatINR(totalTarget)}</span>
-                <span>{onTrackCount} of {totalGoals} goals ≥ 50%</span>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* ── Charts Row ── */}
           <div className="grid gap-4 lg:grid-cols-2">
@@ -1030,46 +1084,71 @@ export default function GoalsPage() {
 
           {/* ── Individual Goal Cards ── */}
           <div>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              All Goals
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {goals.map((g) => {
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                All Goals
+              </h2>
+              <div className="flex items-center rounded-md border bg-muted/40 p-0.5 text-xs">
+                <button
+                  onClick={() => setSortBy("priority")}
+                  className={`rounded px-2.5 py-1 font-medium transition-colors ${sortBy === "priority" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Priority
+                </button>
+                <button
+                  onClick={() => setSortBy("target_date")}
+                  className={`rounded px-2.5 py-1 font-medium transition-colors ${sortBy === "target_date" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Target Date
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-4">
+              {sortedGoals.map((g) => {
                 const meta = statusMeta(g.status);
                 const p = progressMap.get(g.id);
                 const an = analyticsMap.get(g.id);
                 const current = p?.current ?? 0;
+                const tr = g.target_date ? timeRemaining(g.target_date) : null;
+                const estLabel = an?.est_months_left === 0
+                  ? "Achieved"
+                  : an?.est_months_left != null
+                  ? `~${an.est_months_left}mo`
+                  : null;
+                const monthly = g.target_date ? monthlyRequired(current, g.target_amount, g.target_date) : null;
+                const showTimeBlock = (g.target_date || (an && an.est_months_left != null)) && g.status !== "achieved";
 
                 return (
                   <Card
                     key={g.id}
                     className={g.status === "achieved" ? "border-blue-500/40 bg-blue-50/30 dark:bg-blue-950/20" : ""}
                   >
+                    {/* ── Full-width header ── */}
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                           <CardTitle className="flex items-center gap-2 text-base">
                             {g.status === "achieved" && (
                               <CheckCircle2Icon className="size-4 shrink-0 text-blue-500" />
                             )}
                             <span className="truncate">{g.name}</span>
                           </CardTitle>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {g.priority > 0 && PRIORITY_LEVELS[g.priority] && (
-                              <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_LEVELS[g.priority].color}`}
-                                title={`${PRIORITY_LEVELS[g.priority].label}: ${PRIORITY_LEVELS[g.priority].description}`}>
-                                {PRIORITY_LEVELS[g.priority].short}
-                              </span>
-                            )}
-                            {g.target_date && (
-                              <span className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                <ClockIcon className="size-2.5" />
-                                {g.target_date}
-                              </span>
-                            )}
-                          </div>
+                          {g.priority > 0 && PRIORITY_LEVELS[g.priority] && (
+                            <span
+                              className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium ${PRIORITY_LEVELS[g.priority].color}`}
+                              title={`${PRIORITY_LEVELS[g.priority].label}: ${PRIORITY_LEVELS[g.priority].description}`}
+                            >
+                              {PRIORITY_LEVELS[g.priority].short}
+                            </span>
+                          )}
+                          {g.target_date && (
+                            <span className="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              <ClockIcon className="size-2.5" />
+                              {g.target_date}
+                            </span>
+                          )}
                           {g.notes && (
-                            <CardDescription className="mt-0.5 text-xs">{g.notes}</CardDescription>
+                            <span className="text-xs text-muted-foreground italic">{g.notes}</span>
                           )}
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
@@ -1093,215 +1172,214 @@ export default function GoalsPage() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="space-y-4">
-                      {/* Progress bar */}
-                      <div>
-                        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Progress
-                        </p>
-                        <GoalProgressBar current={current} target={g.target_amount} />
-                        <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                          <span>
-                            Target:{" "}
-                            <span className="font-medium text-foreground">{formatINR(g.target_amount)}</span>
-                          </span>
-                          {!p?.hasAccountData && (
-                            <span className="italic text-[10px]">snapshot pending</span>
+                    {/* ── 3-panel horizontal body ── */}
+                    <CardContent>
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+                        {/* Column 1: Progress + Analytics */}
+                        <div className="space-y-4">
+                          <div>
+                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Progress
+                            </p>
+                            <GoalProgressBar current={current} target={g.target_amount} />
+                            <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                              <span>
+                                Target:{" "}
+                                <span className="font-medium text-foreground">{formatINR(g.target_amount)}</span>
+                              </span>
+                              {!p?.hasAccountData && (
+                                <span className="italic text-[10px]">snapshot pending</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {an && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">Unrealized Gain</p>
+                                <p className={`text-sm font-semibold ${an.unrealized_gain >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                                  {an.unrealized_gain >= 0 ? "+" : ""}{formatCompact(an.unrealized_gain)}
+                                </p>
+                              </div>
+                              <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">Return</p>
+                                <p className={`text-sm font-semibold ${an.return_pct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
+                                  {an.return_pct >= 0 ? "+" : ""}{an.return_pct.toFixed(1)}%
+                                </p>
+                              </div>
+                              <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">Goal Age</p>
+                                <p className="text-sm font-semibold flex items-center gap-1">
+                                  <ClockIcon className="size-3 text-muted-foreground" />
+                                  {an.goal_age_months}mo
+                                </p>
+                              </div>
+                              <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+                                <p className="text-[10px] text-muted-foreground mb-0.5">Est. Completion</p>
+                                <p className="text-sm font-semibold">
+                                  {an.est_months_left === 0
+                                    ? "Achieved"
+                                    : an.est_months_left != null
+                                    ? `~${an.est_months_left}mo`
+                                    : "—"}
+                                </p>
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </div>
 
-                      {/* Time Remaining + Monthly Required */}
-                      {(g.target_date || (an && an.est_months_left != null)) && g.status !== "achieved" && (() => {
-                        const tr = g.target_date ? timeRemaining(g.target_date) : null;
-                        const estLabel = an?.est_months_left === 0
-                          ? "Achieved"
-                          : an?.est_months_left != null
-                          ? `~${an.est_months_left}mo`
-                          : null;
-                        const monthly = g.target_date ? monthlyRequired(current, g.target_amount, g.target_date) : null;
-                        return (
-                          <div className={`rounded-md border px-3 py-2 space-y-2 ${tr?.urgent ? "border-red-300 bg-red-50/60 dark:border-red-800 dark:bg-red-950/30" : "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20"}`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <ClockIcon className={`size-4 shrink-0 ${tr?.urgent ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`} />
-                                <div>
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Time Remaining</p>
-                                  {tr && (
-                                    <p className={`text-sm font-bold ${tr.urgent ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-300"}`}>
-                                      {tr.label}
-                                    </p>
-                                  )}
-                                  {tr && g.target_date && (
-                                    <p className="text-[10px] text-muted-foreground">
-                                      Target: {format(parseISO(g.target_date), "dd MMM yyyy")}
-                                    </p>
-                                  )}
-                                  {!tr && estLabel && (
-                                    <p className="text-sm font-bold text-amber-700 dark:text-amber-300">{estLabel}</p>
-                                  )}
+                        {/* Column 2: Time remaining + Sparkline */}
+                        <div className="space-y-4">
+                          {showTimeBlock && (
+                            <div className={`rounded-md border px-3 py-2 space-y-2 ${tr?.urgent ? "border-red-300 bg-red-50/60 dark:border-red-800 dark:bg-red-950/30" : "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20"}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <ClockIcon className={`size-4 shrink-0 ${tr?.urgent ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`} />
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Time Remaining</p>
+                                    {tr && (
+                                      <p className={`text-sm font-bold ${tr.urgent ? "text-red-600 dark:text-red-400" : "text-amber-700 dark:text-amber-300"}`}>
+                                        {tr.label}
+                                      </p>
+                                    )}
+                                    {tr && g.target_date && (
+                                      <p className="text-[10px] text-muted-foreground">
+                                        Target: {format(parseISO(g.target_date), "dd MMM yyyy")}
+                                      </p>
+                                    )}
+                                    {!tr && estLabel && (
+                                      <p className="text-sm font-bold text-amber-700 dark:text-amber-300">{estLabel}</p>
+                                    )}
+                                  </div>
                                 </div>
+                                {tr && estLabel && (
+                                  <div className="text-right">
+                                    <p className="text-[10px] text-muted-foreground">Est. completion</p>
+                                    <p className="text-xs font-semibold text-foreground">{estLabel}</p>
+                                  </div>
+                                )}
                               </div>
-                              {tr && estLabel && (
-                                <div className="text-right">
-                                  <p className="text-[10px] text-muted-foreground">Est. completion</p>
-                                  <p className="text-xs font-semibold text-foreground">{estLabel}</p>
+                              {monthly != null && (
+                                <div className="flex items-center justify-between border-t border-current/10 pt-2">
+                                  <div className="flex items-center gap-2">
+                                    <CalendarIcon className="size-4 shrink-0 text-violet-500" />
+                                    <div>
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Monthly Required</p>
+                                      <p className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                                        {monthly === 0 ? "Goal reached" : formatINR(monthly) + "/mo"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right text-[10px] text-muted-foreground">
+                                    <p>{formatINR(g.target_amount - current)} remaining</p>
+                                  </div>
                                 </div>
                               )}
                             </div>
-                            {monthly != null && (
-                              <div className="flex items-center justify-between border-t border-current/10 pt-2">
-                                <div className="flex items-center gap-2">
-                                  <CalendarIcon className="size-4 shrink-0 text-violet-500" />
-                                  <div>
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Monthly Required</p>
-                                    <p className="text-sm font-bold text-violet-700 dark:text-violet-300">
-                                      {monthly === 0 ? "Goal reached" : formatINR(monthly) + "/mo"}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="text-right text-[10px] text-muted-foreground">
-                                  <p>{formatINR(g.target_amount - current)} remaining</p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                          )}
 
-                      {/* Analytics metrics */}
-                      {an && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-md border bg-muted/30 px-2.5 py-2">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">Unrealized Gain</p>
-                            <p className={`text-sm font-semibold ${an.unrealized_gain >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
-                              {an.unrealized_gain >= 0 ? "+" : ""}{formatCompact(an.unrealized_gain)}
-                            </p>
-                          </div>
-                          <div className="rounded-md border bg-muted/30 px-2.5 py-2">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">Return</p>
-                            <p className={`text-sm font-semibold ${an.return_pct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
-                              {an.return_pct >= 0 ? "+" : ""}{an.return_pct.toFixed(1)}%
-                            </p>
-                          </div>
-                          <div className="rounded-md border bg-muted/30 px-2.5 py-2">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">Goal Age</p>
-                            <p className="text-sm font-semibold flex items-center gap-1">
-                              <ClockIcon className="size-3 text-muted-foreground" />
-                              {an.goal_age_months}mo
-                            </p>
-                          </div>
-                          <div className="rounded-md border bg-muted/30 px-2.5 py-2">
-                            <p className="text-[10px] text-muted-foreground mb-0.5">Est. Completion</p>
-                            <p className="text-sm font-semibold">
-                              {an.est_months_left === 0
-                                ? "Achieved"
-                                : an.est_months_left != null
-                                ? `~${an.est_months_left}mo`
-                                : "—"}
-                            </p>
-                          </div>
+                          {an && an.monthly_history.length >= 2 && (
+                            <div>
+                              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Growth Trend
+                              </p>
+                              <GoalSparkline history={an.monthly_history} />
+                            </div>
+                          )}
                         </div>
-                      )}
 
-                      {/* Asset class breakdown */}
-                      {an && Object.keys(an.asset_breakdown).length > 0 && (
-                        <div>
-                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Asset Mix
-                          </p>
-                          <div className="flex h-2 w-full overflow-hidden rounded-full">
-                            {Object.entries(an.asset_breakdown).map(([cls, amt]) => {
-                              const share = an.current_amount > 0 ? (amt / an.current_amount) * 100 : 0;
-                              return (
-                                <div
-                                  key={cls}
-                                  style={{ width: `${share}%`, backgroundColor: ASSET_CLASS_COLORS[cls] ?? "#888" }}
-                                />
-                              );
-                            })}
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-                            {Object.entries(an.asset_breakdown).map(([cls, amt]) => (
-                              <span key={cls} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                                <span className="size-2 rounded-sm inline-block" style={{ backgroundColor: ASSET_CLASS_COLORS[cls] ?? "#888" }} />
-                                {cls}: {formatCompact(amt)}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Monthly history sparkline */}
-                      {an && an.monthly_history.length >= 2 && (
-                        <div>
-                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Growth Trend
-                          </p>
-                          <GoalSparkline history={an.monthly_history} />
-                        </div>
-                      )}
-
-                      {/* Mapped assets */}
-                      {g.mappings.length > 0 && (
-                        <div>
-                          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Mapped Assets
-                          </p>
-                          <div className="space-y-1.5">
-                            {g.mappings.map((m, idx) => {
-                              const acc = m.asset_table === "account" ? accountMap.get(m.asset_id) : null;
-                              const holding = m.asset_table === "holding" ? holdingMap.get(m.asset_id) : null;
-                              const displayName = acc?.name ?? holding?.name ?? `${m.asset_type} #${m.asset_id}`;
-                              const contribution = acc?.current_amount != null
-                                ? acc.current_amount * m.allocation_weight
-                                : null;
-                              return (
-                                <div
-                                  key={m.id}
-                                  className="flex items-center justify-between rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                      className="size-2 shrink-0 rounded-sm"
-                                      style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                                    />
-                                    <span
-                                      className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
-                                        m.asset_table === "account"
-                                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                          : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
-                                      }`}
+                        {/* Column 3: Mapped assets + Asset mix */}
+                        <div className="space-y-4">
+                          {g.mappings.length > 0 && (
+                            <div>
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Mapped Assets
+                              </p>
+                              <div className="space-y-1.5">
+                                {g.mappings.map((m, idx) => {
+                                  const acc = m.asset_table === "account" ? accountMap.get(m.asset_id) : null;
+                                  const holding = m.asset_table === "holding" ? holdingMap.get(m.asset_id) : null;
+                                  const displayName = acc?.name ?? holding?.name ?? `${m.asset_type} #${m.asset_id}`;
+                                  const contribution = acc?.current_amount != null
+                                    ? acc.current_amount * m.allocation_weight
+                                    : null;
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className="flex items-center justify-between rounded-md border bg-muted/30 px-2.5 py-1.5 text-xs"
                                     >
-                                      {m.asset_table === "holding" ? (holding?.instrument_type ?? "holding") : "account"}
-                                    </span>
-                                    <span className="truncate">{displayName}</span>
-                                  </div>
-                                  <div className="ml-2 flex shrink-0 items-center gap-2 text-muted-foreground">
-                                    {contribution != null && (
-                                      <span>{formatINR(contribution)}</span>
-                                    )}
-                                    <span className="font-semibold text-foreground">
-                                      {(m.allocation_weight * 100).toFixed(0)}%
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full">
-                            {g.mappings.map((m, idx) => (
-                              <div
-                                key={m.id}
-                                style={{
-                                  width: `${m.allocation_weight * 100}%`,
-                                  backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
-                                }}
-                              />
-                            ))}
-                          </div>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span
+                                          className="size-2 shrink-0 rounded-sm"
+                                          style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                                        />
+                                        <span
+                                          className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
+                                            m.asset_table === "account"
+                                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+                                          }`}
+                                        >
+                                          {m.asset_table === "holding" ? (holding?.instrument_type ?? "holding") : "account"}
+                                        </span>
+                                        <span className="truncate">{displayName}</span>
+                                      </div>
+                                      <div className="ml-2 flex shrink-0 items-center gap-2 text-muted-foreground">
+                                        {contribution != null && (
+                                          <span>{formatINR(contribution)}</span>
+                                        )}
+                                        <span className="font-semibold text-foreground">
+                                          {(m.allocation_weight * 100).toFixed(0)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full">
+                                {g.mappings.map((m, idx) => (
+                                  <div
+                                    key={m.id}
+                                    style={{
+                                      width: `${m.allocation_weight * 100}%`,
+                                      backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {an && Object.keys(an.asset_breakdown).length > 0 && (
+                            <div>
+                              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Asset Mix
+                              </p>
+                              <div className="flex h-2 w-full overflow-hidden rounded-full">
+                                {Object.entries(an.asset_breakdown).map(([cls, amt]) => {
+                                  const share = an.current_amount > 0 ? (amt / an.current_amount) * 100 : 0;
+                                  return (
+                                    <div
+                                      key={cls}
+                                      style={{ width: `${share}%`, backgroundColor: ASSET_CLASS_COLORS[cls] ?? "#888" }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                                {Object.entries(an.asset_breakdown).map(([cls, amt]) => (
+                                  <span key={cls} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                    <span className="size-2 rounded-sm inline-block" style={{ backgroundColor: ASSET_CLASS_COLORS[cls] ?? "#888" }} />
+                                    {cls}: {formatCompact(amt)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+
+                      </div>
                     </CardContent>
                   </Card>
                 );
