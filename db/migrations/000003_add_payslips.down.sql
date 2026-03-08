@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS payslips;
+DROP TABLE IF EXISTS employments;

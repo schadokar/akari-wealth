@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS goal_mappings;
+DROP TABLE IF EXISTS goals;

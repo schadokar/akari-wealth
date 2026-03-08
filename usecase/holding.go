@@ -34,6 +34,10 @@ func (u *UseCase) GetHoldingByID(ctx context.Context, id int64) (*model.Holding,
 	return u.store.GetHoldingByID(ctx, id)
 }
 
+func (u *UseCase) GetAllHoldings(ctx context.Context) ([]model.Holding, error) {
+	return u.store.GetAllHoldings(ctx)
+}
+
 func (u *UseCase) GetHoldingsByAccountID(ctx context.Context, accountID int64) ([]model.Holding, error) {
 	return u.store.GetHoldingsByAccountID(ctx, accountID)
 }

@@ -45,6 +45,7 @@ import {
 import { InfoIcon } from "lucide-react";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
 
 function InfoTip({ text }: { text: string }) {
   return (
@@ -158,12 +159,12 @@ export default function HealthPage() {
   const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/dashboard")
+    apiFetch("/api/dashboard")
       .then((res) => res.json())
       .then((data: DashboardData) => setDashboard(data));
 
     const { from, to } = getMonthRange(12);
-    fetch(`http://localhost:8080/api/summary?from=${from}&to=${to}`)
+    apiFetch(`/api/summary?from=${from}&to=${to}`)
       .then((res) => res.json())
       .then((data: MonthlySummary[]) => setSummaries(data ?? []));
   }, []);

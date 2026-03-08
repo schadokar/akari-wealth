@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Info } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import {
   SidebarProvider,
@@ -23,6 +23,13 @@ import {
 } from "@/components/ui/chart";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // --- Types matching backend responses ---
 
@@ -75,6 +82,14 @@ const ASSET_CLASS_LABELS: Record<string, string> = {
   cash: "Cash",
 };
 
+const ASSET_CLASS_DESCRIPTIONS: Record<string, string> = {
+  equity: "Stocks, mutual funds, ETFs, and other equity-based investments.",
+  debt: "Fixed deposits, bonds, PPF, NPS, and other debt instruments.",
+  commodity: "Gold, silver, REITs, and other commodity holdings.",
+  hybrid: "Balanced/hybrid mutual funds with mixed equity and debt exposure.",
+  cash: "Savings accounts, current accounts, and liquid cash equivalents.",
+};
+
 // Build "from" month: 6 months ago in YYYY-MM format
 function getMonthRange(): { from: string; to: string } {
   const now = new Date();
@@ -91,12 +106,12 @@ export default function DashboardPage() {
   const [accountsOpen, setAccountsOpen] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/dashboard")
+    apiFetch("/api/dashboard")
       .then((res) => res.json())
       .then((data: DashboardData) => setDashboard(data));
 
     const { from, to } = getMonthRange();
-    fetch(`http://localhost:8080/api/summary?from=${from}&to=${to}`)
+    apiFetch(`/api/summary?from=${from}&to=${to}`)
       .then((res) => res.json())
       .then((data: MonthlySummary[]) => {
         setTrendData(
@@ -107,7 +122,7 @@ export default function DashboardPage() {
         );
       });
 
-    fetch("http://localhost:8080/api/accounts?is_active=true")
+    apiFetch("/api/accounts?is_active=true")
       .then((res) => res.json())
       .then((data: Account[]) => setAccounts(data ?? []));
   }, []);
@@ -208,16 +223,30 @@ export default function DashboardPage() {
                 <CardDescription>Breakdown by asset class</CardDescription>
               </CardHeader>
               <CardContent>
+                <TooltipProvider>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                   {assetDistEntries.map(([key, value]) => (
                     <Card key={key}>
                       <CardHeader>
-                        <CardDescription>{ASSET_CLASS_LABELS[key] ?? key}</CardDescription>
+                        <div className="flex items-center gap-1">
+                          <CardDescription>{ASSET_CLASS_LABELS[key] ?? key}</CardDescription>
+                          {ASSET_CLASS_DESCRIPTIONS[key] && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-48 text-xs">{ASSET_CLASS_DESCRIPTIONS[key]}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                         <CardTitle className="text-xl">{formatINR(value)}</CardTitle>
                       </CardHeader>
                     </Card>
                   ))}
                 </div>
+                </TooltipProvider>
               </CardContent>
             </Card>
           )}

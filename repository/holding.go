@@ -37,6 +37,29 @@ func (r *Repository) GetHoldingByID(ctx context.Context, id int64) (*model.Holdi
 	return &h, nil
 }
 
+func (r *Repository) GetAllHoldings(ctx context.Context) ([]model.Holding, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, account_id, name, instrument_type, asset_class, is_active, notes, created_at
+		 FROM holdings WHERE is_active = 1 ORDER BY instrument_type, name`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var holdings []model.Holding
+	for rows.Next() {
+		var h model.Holding
+		var isActive int
+		if err := rows.Scan(&h.ID, &h.AccountID, &h.Name, &h.InstrumentType, &h.AssetClass, &isActive, &h.Notes, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		h.IsActive = isActive == 1
+		holdings = append(holdings, h)
+	}
+	return holdings, rows.Err()
+}
+
 func (r *Repository) GetHoldingsByAccountID(ctx context.Context, accountID int64) ([]model.Holding, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, account_id, name, instrument_type, asset_class, is_active, notes, created_at

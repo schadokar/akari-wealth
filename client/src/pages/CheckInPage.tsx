@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
 
 const fmtAmt = (v: string) => (v ? formatINR(Number(v), false) : "");
 const rawAmt = (v: string) => v.replace(/[^0-9.]/g, "");
@@ -79,7 +80,7 @@ export default function CheckInPage() {
   };
 
   const fetchAccounts = () => {
-    fetch("http://localhost:8080/api/accounts?is_active=true")
+    apiFetch("/api/accounts?is_active=true")
       .then((res) => res.json())
       .then((data: Account[]) => {
         const all = data ?? [];
@@ -109,7 +110,7 @@ export default function CheckInPage() {
       setSnapshots([]);
       return;
     }
-    fetch(`http://localhost:8080/api/snapshots/accounts/${accId}`)
+    apiFetch(`/api/snapshots/accounts/${accId}`)
       .then((res) => res.json())
       .then((data: AccountSnapshot[]) => setSnapshots(data ?? []));
   };
@@ -165,7 +166,7 @@ export default function CheckInPage() {
 
     setSavingLiabilities(true);
     try {
-      const res = await fetch("http://localhost:8080/api/snapshots/accounts", {
+      const res = await apiFetch("/api/snapshots/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -209,7 +210,7 @@ export default function CheckInPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("http://localhost:8080/api/snapshots/accounts", {
+      const res = await apiFetch("/api/snapshots/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

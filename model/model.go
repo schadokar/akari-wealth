@@ -1,6 +1,15 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrNotFound         = errors.New("not found")
+	ErrValidation       = errors.New("validation error")
+	ErrWeightNotHundred = errors.New("allocation weights must sum to 100%")
+)
 
 // Account category constants
 const (
@@ -36,7 +45,40 @@ const (
 	InstrumentMutualFund = "mutual_fund"
 )
 
+// Goal constants
+const (
+	GoalStatusActive   = "active"
+	GoalStatusAchieved = "achieved"
+	GoalStatusPaused   = "paused"
+
+	AssetTableAccount = "account"
+	AssetTableHolding = "holding"
+)
+
+// --- Auth DTOs ---
+
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type RegisterRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
 // --- DB Models ---
+
+type User struct {
+	ID           int64     `json:"id"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+}
 
 type Account struct {
 	ID           int64     `json:"id" db:"id"`
@@ -236,4 +278,217 @@ type MonthOverMonthChange struct {
 	PreviousNetWorth float64 `json:"previous_net_worth"`
 	Change           float64 `json:"change"`
 	ChangePercent    float64 `json:"change_percent"`
+}
+
+// --- Goal DB Models ---
+
+type Goal struct {
+	ID           int64     `json:"id" db:"id"`
+	Name         string    `json:"name" db:"name"`
+	TargetAmount float64   `json:"target_amount" db:"target_amount"`
+	Status       string    `json:"status" db:"status"`
+	Priority     int       `json:"priority" db:"priority"`
+	TargetDate   *string   `json:"target_date,omitempty" db:"target_date"`
+	Notes        *string   `json:"notes,omitempty" db:"notes"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type GoalMapping struct {
+	ID               int64   `json:"id" db:"id"`
+	GoalID           int64   `json:"goal_id" db:"goal_id"`
+	AssetTable       string  `json:"asset_table" db:"asset_table"`
+	AssetType        string  `json:"asset_type" db:"asset_type"`
+	AssetID          int64   `json:"asset_id" db:"asset_id"`
+	AllocationWeight float64 `json:"allocation_weight" db:"allocation_weight"`
+}
+
+// --- Goal Request / Response DTOs ---
+
+type GoalMappingInput struct {
+	AssetTable       string  `json:"asset_table"`
+	AssetType        string  `json:"asset_type"`
+	AssetID          int64   `json:"asset_id"`
+	AllocationWeight float64 `json:"allocation_weight"`
+}
+
+type CreateGoalRequest struct {
+	Name         string             `json:"name"`
+	TargetAmount float64            `json:"target_amount"`
+	Priority     int                `json:"priority"`
+	TargetDate   *string            `json:"target_date"`
+	Notes        *string            `json:"notes"`
+	Mappings     []GoalMappingInput `json:"mappings"`
+}
+
+type UpdateGoalRequest struct {
+	Name         *string  `json:"name"`
+	TargetAmount *float64 `json:"target_amount"`
+	Status       *string  `json:"status"`
+	Priority     *int     `json:"priority"`
+	TargetDate   *string  `json:"target_date"`
+	Notes        *string  `json:"notes"`
+}
+
+type GoalResponse struct {
+	ID           int64         `json:"id"`
+	Name         string        `json:"name"`
+	TargetAmount float64       `json:"target_amount"`
+	Status       string        `json:"status"`
+	Priority     int           `json:"priority"`
+	TargetDate   *string       `json:"target_date,omitempty"`
+	Notes        *string       `json:"notes,omitempty"`
+	Mappings     []GoalMapping `json:"mappings"`
+	CreatedAt    string        `json:"created_at"`
+	UpdatedAt    string        `json:"updated_at"`
+}
+
+// --- Goal Analytics ---
+
+type GoalMonthPoint struct {
+	Month   string  `json:"month"`
+	Current float64 `json:"current"`
+}
+
+type GoalAnalyticsEntry struct {
+	GoalID         int64              `json:"goal_id"`
+	CurrentAmount  float64            `json:"current_amount"`
+	InvestedAmount float64            `json:"invested_amount"`
+	UnrealizedGain float64            `json:"unrealized_gain"`
+	ReturnPct      float64            `json:"return_pct"`
+	AssetBreakdown map[string]float64 `json:"asset_breakdown"`
+	MonthlyHistory []GoalMonthPoint   `json:"monthly_history"`
+	GoalAgeMonths  int                `json:"goal_age_months"`
+	EstMonthsLeft  *int               `json:"est_months_left,omitempty"`
+}
+
+// --- Employment & Payslip DB Models ---
+
+type Employment struct {
+	ID               int64   `json:"id" db:"id"`
+	UserID           int64   `json:"user_id" db:"user_id"`
+	EmployeeName     string  `json:"employee_name" db:"employee_name"`
+	UAN              *string `json:"uan,omitempty" db:"uan"`
+	EmployerName     string  `json:"employer_name" db:"employer_name"`
+	EmployerLocation *string `json:"employer_location,omitempty" db:"employer_location"`
+	PFAccount        *string `json:"pf_account,omitempty" db:"pf_account"`
+	StartDate        string  `json:"start_date" db:"start_date"`
+	EndDate          *string `json:"end_date,omitempty" db:"end_date"`
+	EmploymentType   string  `json:"employment_type" db:"employment_type"`
+}
+
+type Payslip struct {
+	ID                    int64    `json:"id" db:"id"`
+	EmploymentID          int64    `json:"employment_id" db:"employment_id"`
+	PayMonth              string   `json:"pay_month" db:"pay_month"`
+	BasicSalary           float64  `json:"basic_salary" db:"basic_salary"`
+	HRA                   *float64 `json:"hra,omitempty" db:"hra"`
+	ConveyanceAllowance   *float64 `json:"conveyance_allowance,omitempty" db:"conveyance_allowance"`
+	MedicalAllowance      *float64 `json:"medical_allowance,omitempty" db:"medical_allowance"`
+	LTA                   *float64 `json:"lta,omitempty" db:"lta"`
+	SpecialAllowance      *float64 `json:"special_allowance,omitempty" db:"special_allowance"`
+	FlexiblePay           *float64 `json:"flexible_pay,omitempty" db:"flexible_pay"`
+	MealAllowance         *float64 `json:"meal_allowance,omitempty" db:"meal_allowance"`
+	MobileAllowance       *float64 `json:"mobile_allowance,omitempty" db:"mobile_allowance"`
+	InternetAllowance     *float64 `json:"internet_allowance,omitempty" db:"internet_allowance"`
+	DifferentialAllowance *float64 `json:"differential_allowance,omitempty" db:"differential_allowance"`
+	StatutoryBonus        *float64 `json:"statutory_bonus,omitempty" db:"statutory_bonus"`
+	PerformancePay        *float64 `json:"performance_pay,omitempty" db:"performance_pay"`
+	AdvanceBonus          *float64 `json:"advance_bonus,omitempty" db:"advance_bonus"`
+	OtherAllowance        *float64 `json:"other_allowance,omitempty" db:"other_allowance"`
+	EPF                   float64  `json:"epf" db:"epf"`
+	VPF                   *float64 `json:"vpf,omitempty" db:"vpf"`
+	NPS                   *float64 `json:"nps,omitempty" db:"nps"`
+	ProfessionalTax       float64  `json:"professional_tax" db:"professional_tax"`
+	TDS                   float64  `json:"tds" db:"tds"`
+	LWF                   *float64 `json:"lwf,omitempty" db:"lwf"`
+	ESIEmployee           *float64 `json:"esi_employee,omitempty" db:"esi_employee"`
+	MealCouponDeduction   *float64 `json:"meal_coupon_deduction,omitempty" db:"meal_coupon_deduction"`
+	LoanRecovery          *float64 `json:"loan_recovery,omitempty" db:"loan_recovery"`
+	OtherDeduction        *float64 `json:"other_deduction,omitempty" db:"other_deduction"`
+	Notes                 *string  `json:"notes,omitempty" db:"notes"`
+}
+
+// --- Employment & Payslip Request DTOs ---
+
+type CreateEmploymentRequest struct {
+	EmployeeName     string  `json:"employee_name"`
+	UAN              *string `json:"uan"`
+	EmployerName     string  `json:"employer_name"`
+	EmployerLocation *string `json:"employer_location"`
+	PFAccount        *string `json:"pf_account"`
+	StartDate        string  `json:"start_date"`
+	EndDate          *string `json:"end_date"`
+	EmploymentType   string  `json:"employment_type"`
+}
+
+type UpdateEmploymentRequest struct {
+	EmployeeName     *string `json:"employee_name"`
+	UAN              *string `json:"uan"`
+	EmployerName     *string `json:"employer_name"`
+	EmployerLocation *string `json:"employer_location"`
+	PFAccount        *string `json:"pf_account"`
+	StartDate        *string `json:"start_date"`
+	EndDate          *string `json:"end_date"`
+	EmploymentType   *string `json:"employment_type"`
+}
+
+type CreatePayslipRequest struct {
+	PayMonth              string   `json:"pay_month"`
+	BasicSalary           float64  `json:"basic_salary"`
+	HRA                   *float64 `json:"hra"`
+	ConveyanceAllowance   *float64 `json:"conveyance_allowance"`
+	MedicalAllowance      *float64 `json:"medical_allowance"`
+	LTA                   *float64 `json:"lta"`
+	SpecialAllowance      *float64 `json:"special_allowance"`
+	FlexiblePay           *float64 `json:"flexible_pay"`
+	MealAllowance         *float64 `json:"meal_allowance"`
+	MobileAllowance       *float64 `json:"mobile_allowance"`
+	InternetAllowance     *float64 `json:"internet_allowance"`
+	DifferentialAllowance *float64 `json:"differential_allowance"`
+	StatutoryBonus        *float64 `json:"statutory_bonus"`
+	PerformancePay        *float64 `json:"performance_pay"`
+	AdvanceBonus          *float64 `json:"advance_bonus"`
+	OtherAllowance        *float64 `json:"other_allowance"`
+	EPF                   float64  `json:"epf"`
+	VPF                   *float64 `json:"vpf"`
+	NPS                   *float64 `json:"nps"`
+	ProfessionalTax       float64  `json:"professional_tax"`
+	TDS                   float64  `json:"tds"`
+	LWF                   *float64 `json:"lwf"`
+	ESIEmployee           *float64 `json:"esi_employee"`
+	MealCouponDeduction   *float64 `json:"meal_coupon_deduction"`
+	LoanRecovery          *float64 `json:"loan_recovery"`
+	OtherDeduction        *float64 `json:"other_deduction"`
+	Notes                 *string  `json:"notes"`
+}
+
+type UpdatePayslipRequest struct {
+	PayMonth              *string  `json:"pay_month"`
+	BasicSalary           *float64 `json:"basic_salary"`
+	HRA                   *float64 `json:"hra"`
+	ConveyanceAllowance   *float64 `json:"conveyance_allowance"`
+	MedicalAllowance      *float64 `json:"medical_allowance"`
+	LTA                   *float64 `json:"lta"`
+	SpecialAllowance      *float64 `json:"special_allowance"`
+	FlexiblePay           *float64 `json:"flexible_pay"`
+	MealAllowance         *float64 `json:"meal_allowance"`
+	MobileAllowance       *float64 `json:"mobile_allowance"`
+	InternetAllowance     *float64 `json:"internet_allowance"`
+	DifferentialAllowance *float64 `json:"differential_allowance"`
+	StatutoryBonus        *float64 `json:"statutory_bonus"`
+	PerformancePay        *float64 `json:"performance_pay"`
+	AdvanceBonus          *float64 `json:"advance_bonus"`
+	OtherAllowance        *float64 `json:"other_allowance"`
+	EPF                   *float64 `json:"epf"`
+	VPF                   *float64 `json:"vpf"`
+	NPS                   *float64 `json:"nps"`
+	ProfessionalTax       *float64 `json:"professional_tax"`
+	TDS                   *float64 `json:"tds"`
+	LWF                   *float64 `json:"lwf"`
+	ESIEmployee           *float64 `json:"esi_employee"`
+	MealCouponDeduction   *float64 `json:"meal_coupon_deduction"`
+	LoanRecovery          *float64 `json:"loan_recovery"`
+	OtherDeduction        *float64 `json:"other_deduction"`
+	Notes                 *string  `json:"notes"`
 }

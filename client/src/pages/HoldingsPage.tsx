@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
 
 const fmtAmt = (v: string) => (v ? formatINR(Number(v), false) : "");
 const rawAmt = (v: string) => v.replace(/[^0-9.]/g, "");
@@ -113,13 +114,13 @@ export default function HoldingsPage() {
 
   const fetchData = async () => {
     try {
-      const res = await fetch("http://localhost:8080/api/accounts?category=brokerage");
+      const res = await apiFetch("/api/accounts?category=brokerage");
       const accs: Account[] = (await res.json()) ?? [];
       setAccounts(accs);
 
       const holdingResults = await Promise.all(
         accs.map(async (acc) => {
-          const r = await fetch(`http://localhost:8080/api/accounts/${acc.id}/holdings`);
+          const r = await apiFetch(`/api/accounts/${acc.id}/holdings`);
           const h = await r.json();
           return ((h ?? []) as Holding[]).map((holding) => ({
             ...holding,
@@ -146,8 +147,8 @@ export default function HoldingsPage() {
     }
     const controller = new AbortController();
     const assetClass = INSTRUMENT_TYPES.find((t) => t.value === createInstrumentType)?.assetClass ?? "";
-    fetch(
-      `http://localhost:8080/api/instruments/search?q=${encodeURIComponent(createSearchQuery)}&asset_class=${assetClass}`,
+    apiFetch(
+      `/api/instruments/search?q=${encodeURIComponent(createSearchQuery)}&asset_class=${assetClass}`,
       { signal: controller.signal }
     )
       .then((r) => r.json())
@@ -199,7 +200,7 @@ export default function HoldingsPage() {
     setUpdateCurrentAmount("");
     setUpdateOpen(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/snapshots/holdings/${h.id}`);
+      const res = await apiFetch(`/api/snapshots/holdings/${h.id}`);
       const snapshots = await res.json();
       if (Array.isArray(snapshots) && snapshots.length > 0) {
         const latest = snapshots[snapshots.length - 1];
@@ -227,8 +228,8 @@ export default function HoldingsPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/accounts/${createAccountId}/holdings`,
+      const res = await apiFetch(
+        `/api/accounts/${createAccountId}/holdings`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -246,7 +247,7 @@ export default function HoldingsPage() {
         if (!isNaN(current)) {
           const month = new Date().toISOString().slice(0, 7);
           const invested = parseFloat(createInvestedAmount);
-          await fetch("http://localhost:8080/api/snapshots/holdings", {
+          await apiFetch("/api/snapshots/holdings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([{
@@ -272,7 +273,7 @@ export default function HoldingsPage() {
 
     setUpdating(true);
     try {
-      const res = await fetch(`http://localhost:8080/api/holdings/${updateHoldingId}`, {
+      const res = await apiFetch(`/api/holdings/${updateHoldingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -286,7 +287,7 @@ export default function HoldingsPage() {
         if (!isNaN(current)) {
           const month = new Date().toISOString().slice(0, 7);
           const invested = parseFloat(updateInvestedAmount);
-          await fetch("http://localhost:8080/api/snapshots/holdings", {
+          await apiFetch("/api/snapshots/holdings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([{
@@ -307,14 +308,14 @@ export default function HoldingsPage() {
   };
 
   const handleDeactivate = async (id: number) => {
-    const res = await fetch(`http://localhost:8080/api/holdings/${id}`, {
+    const res = await apiFetch(`/api/holdings/${id}`, {
       method: "DELETE",
     });
     if (res.ok) fetchData();
   };
 
   const handleActivate = async (id: number) => {
-    const res = await fetch(`http://localhost:8080/api/holdings/${id}`, {
+    const res = await apiFetch(`/api/holdings/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: true }),

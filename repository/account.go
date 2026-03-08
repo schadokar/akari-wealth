@@ -6,14 +6,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/perfi/auth"
 	"github.com/perfi/model"
 )
 
 func (r *Repository) InsertAccount(ctx context.Context, a model.Account) (int64, error) {
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return 0, err
+	}
 	res, err := r.db.ExecContext(ctx,
-		`INSERT INTO accounts (name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, notes)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.Name, a.Category, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, a.Notes,
+		`INSERT INTO accounts (user_id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, notes)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		userID, a.Name, a.Category, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, a.Notes,
 	)
 	if err != nil {
 		return 0, err
@@ -22,11 +27,15 @@ func (r *Repository) InsertAccount(ctx context.Context, a model.Account) (int64,
 }
 
 func (r *Repository) GetAccountByID(ctx context.Context, id int64) (*model.Account, error) {
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var a model.Account
 	var isActive int
-	err := r.db.QueryRowContext(ctx,
+	err = r.db.QueryRowContext(ctx,
 		`SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, is_active, notes, created_at, updated_at
-		 FROM accounts WHERE id = ?`, id,
+		 FROM accounts WHERE id = ? AND user_id = ?`, id, userID,
 	).Scan(&a.ID, &a.Name, &a.Category, &a.SubCategory, &a.AssetClass, &a.Institution, &a.InterestRate, &a.EMIAmount, &a.StartDate, &a.TenureMonths, &a.MaturityDate, &isActive, &a.Notes, &a.CreatedAt, &a.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -39,9 +48,13 @@ func (r *Repository) GetAccountByID(ctx context.Context, id int64) (*model.Accou
 }
 
 func (r *Repository) GetAccounts(ctx context.Context, category, assetClass string, isActive *bool) ([]model.Account, error) {
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	query := `SELECT id, name, category, sub_category, asset_class, institution, interest_rate, emi_amount, start_date, tenure_months, maturity_date, is_active, notes, created_at, updated_at FROM accounts`
-	var conditions []string
-	var args []any
+	conditions := []string{"user_id = ?"}
+	args := []any{userID}
 
 	if category != "" {
 		conditions = append(conditions, "category = ?")
@@ -60,9 +73,7 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 		}
 	}
 
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
+	query += " WHERE " + strings.Join(conditions, " AND ")
 	query += " ORDER BY category, name"
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -85,17 +96,25 @@ func (r *Repository) GetAccounts(ctx context.Context, category, assetClass strin
 }
 
 func (r *Repository) UpdateAccount(ctx context.Context, id int64, a model.Account) error {
-	_, err := r.db.ExecContext(ctx,
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx,
 		`UPDATE accounts SET name = ?, sub_category = ?, asset_class = ?, institution = ?, interest_rate = ?, emi_amount = ?, start_date = ?, tenure_months = ?, maturity_date = ?, is_active = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-		 WHERE id = ?`,
-		a.Name, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, boolToInt(a.IsActive), a.Notes, id,
+		 WHERE id = ? AND user_id = ?`,
+		a.Name, a.SubCategory, a.AssetClass, a.Institution, a.InterestRate, a.EMIAmount, a.StartDate, a.TenureMonths, a.MaturityDate, boolToInt(a.IsActive), a.Notes, id, userID,
 	)
 	return err
 }
 
 func (r *Repository) SoftDeleteAccount(ctx context.Context, id int64) error {
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return err
+	}
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id,
+		`UPDATE accounts SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`, id, userID,
 	)
 	if err != nil {
 		return err

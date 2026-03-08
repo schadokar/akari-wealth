@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1160,7 +1161,7 @@ export default function LoanAnalyserPage() {
 
   // Fetch loans from API
   useEffect(() => {
-    fetch("http://localhost:8080/api/accounts?is_active=true")
+    apiFetch("/api/accounts?is_active=true")
       .then((r) => r.json())
       .then((data: ApiAccount[]) => setApiLoans((data ?? []).filter((a) => a.category === "loan")))
       .catch(() => {});

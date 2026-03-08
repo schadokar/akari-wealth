@@ -3,14 +3,21 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/perfi/auth"
 	"github.com/perfi/model"
 )
 
 type Service interface {
+	// Auth
+	Login(ctx context.Context, username, password string) (string, error)
+	Register(ctx context.Context, username, password string) error
+
 	// Accounts
 	CreateAccount(ctx context.Context, req model.CreateAccountRequest) (int64, error)
 	GetAccountByID(ctx context.Context, id int64) (*model.Account, error)
@@ -21,6 +28,7 @@ type Service interface {
 	// Holdings
 	CreateHolding(ctx context.Context, accountID int64, req model.CreateHoldingRequest) (int64, error)
 	GetHoldingByID(ctx context.Context, id int64) (*model.Holding, error)
+	GetAllHoldings(ctx context.Context) ([]model.Holding, error)
 	GetHoldingsByAccountID(ctx context.Context, accountID int64) ([]model.Holding, error)
 	UpdateHolding(ctx context.Context, id int64, req model.UpdateHoldingRequest) error
 	SoftDeleteHolding(ctx context.Context, id int64) error
@@ -49,6 +57,29 @@ type Service interface {
 
 	// Dashboard
 	GetDashboard(ctx context.Context) (*model.DashboardResponse, error)
+
+	// Employments
+	CreateEmployment(ctx context.Context, req model.CreateEmploymentRequest) (int64, error)
+	GetEmploymentByID(ctx context.Context, id int64) (*model.Employment, error)
+	GetEmployments(ctx context.Context) ([]model.Employment, error)
+	UpdateEmployment(ctx context.Context, id int64, req model.UpdateEmploymentRequest) error
+	DeleteEmployment(ctx context.Context, id int64) error
+
+	// Payslips
+	CreatePayslip(ctx context.Context, employmentID int64, req model.CreatePayslipRequest) (int64, error)
+	GetPayslipByID(ctx context.Context, id int64) (*model.Payslip, error)
+	GetPayslipsByEmploymentID(ctx context.Context, employmentID int64) ([]model.Payslip, error)
+	UpdatePayslip(ctx context.Context, id int64, req model.UpdatePayslipRequest) error
+	DeletePayslip(ctx context.Context, id int64) error
+
+	// Goals
+	CreateGoal(ctx context.Context, req model.CreateGoalRequest) (int64, error)
+	GetGoalByID(ctx context.Context, id int64) (*model.GoalResponse, error)
+	GetGoals(ctx context.Context) ([]model.GoalResponse, error)
+	UpdateGoal(ctx context.Context, id int64, req model.UpdateGoalRequest) error
+	DeleteGoal(ctx context.Context, id int64) error
+	UpdateGoalMappings(ctx context.Context, goalID int64, mappings []model.GoalMappingInput) error
+	GetGoalAnalytics(ctx context.Context) ([]model.GoalAnalyticsEntry, error)
 }
 
 type Handler struct {
@@ -63,7 +94,7 @@ func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -72,56 +103,115 @@ func cors(next http.Handler) http.Handler {
 	})
 }
 
+func jwtMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		userID, err := auth.VerifyToken(token)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		ctx := auth.WithUserID(r.Context(), userID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func (h *Handler) Routes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(cors)
 
 	r.Route("/api", func(r chi.Router) {
-		// Accounts
-		r.Route("/accounts", func(r chi.Router) {
-			r.Get("/", h.listAccounts)
-			r.Post("/", h.createAccount)
-			r.Get("/{id}", h.getAccount)
-			r.Put("/{id}", h.updateAccount)
-			r.Delete("/{id}", h.deleteAccount)
+		// Public auth routes
+		r.Post("/auth/login", h.login)
+		r.Post("/auth/register", h.register)
 
-			// Holdings under account
-			r.Get("/{accountId}/holdings", h.listHoldings)
-			r.Post("/{accountId}/holdings", h.createHolding)
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(jwtMiddleware)
+
+			// Accounts
+			r.Route("/accounts", func(r chi.Router) {
+				r.Get("/", h.listAccounts)
+				r.Post("/", h.createAccount)
+				r.Get("/{id}", h.getAccount)
+				r.Put("/{id}", h.updateAccount)
+				r.Delete("/{id}", h.deleteAccount)
+
+				// Holdings under account
+				r.Get("/{accountId}/holdings", h.listHoldings)
+				r.Post("/{accountId}/holdings", h.createHolding)
+			})
+
+			// Holdings (direct access)
+			r.Route("/holdings", func(r chi.Router) {
+				r.Get("/", h.listAllHoldings)
+				r.Get("/{id}", h.getHolding)
+				r.Put("/{id}", h.updateHolding)
+				r.Delete("/{id}", h.deleteHolding)
+			})
+
+			// Snapshots
+			r.Route("/snapshots", func(r chi.Router) {
+				// Account snapshots
+				r.Post("/accounts", h.bulkUpsertAccountSnapshots)
+				r.Get("/accounts/{accountId}", h.getAccountSnapshotHistory)
+				r.Get("/month/{month}", h.getAccountSnapshotsByMonth)
+
+				// Holding snapshots
+				r.Post("/holdings", h.bulkUpsertHoldingSnapshots)
+				r.Get("/holdings/{holdingId}", h.getHoldingSnapshotHistory)
+
+				// Credit card snapshots
+				r.Post("/credit-cards", h.bulkUpsertCreditCardSnapshots)
+				r.Get("/credit-cards/{accountId}", h.getCreditCardSnapshotHistory)
+			})
+
+			// Financial Instruments
+			r.Get("/instruments/search", h.searchInstruments)
+
+			// Monthly Summary
+			r.Get("/summary", h.getMonthlySummaryRange)
+			r.Get("/summary/{month}", h.getMonthlySummary)
+
+			// Dashboard
+			r.Get("/dashboard", h.getDashboard)
+
+			// Employments
+			r.Route("/employments", func(r chi.Router) {
+				r.Get("/", h.listEmployments)
+				r.Post("/", h.createEmployment)
+				r.Get("/{id}", h.getEmployment)
+				r.Put("/{id}", h.updateEmployment)
+				r.Delete("/{id}", h.deleteEmployment)
+
+				// Payslips under employment
+				r.Get("/{employmentId}/payslips", h.listPayslips)
+				r.Post("/{employmentId}/payslips", h.createPayslip)
+			})
+
+			// Payslips (direct access)
+			r.Route("/payslips", func(r chi.Router) {
+				r.Get("/{id}", h.getPayslip)
+				r.Put("/{id}", h.updatePayslip)
+				r.Delete("/{id}", h.deletePayslip)
+			})
+
+			// Goals
+			r.Route("/goals", func(r chi.Router) {
+				r.Get("/", h.listGoals)
+				r.Post("/", h.createGoal)
+				r.Get("/analytics", h.getGoalAnalytics)
+				r.Get("/{id}", h.getGoal)
+				r.Put("/{id}", h.updateGoal)
+				r.Delete("/{id}", h.deleteGoal)
+				r.Put("/{id}/mappings", h.updateGoalMappings)
+			})
 		})
-
-		// Holdings (direct access)
-		r.Route("/holdings", func(r chi.Router) {
-			r.Get("/{id}", h.getHolding)
-			r.Put("/{id}", h.updateHolding)
-			r.Delete("/{id}", h.deleteHolding)
-		})
-
-		// Snapshots
-		r.Route("/snapshots", func(r chi.Router) {
-			// Account snapshots
-			r.Post("/accounts", h.bulkUpsertAccountSnapshots)
-			r.Get("/accounts/{accountId}", h.getAccountSnapshotHistory)
-			r.Get("/month/{month}", h.getAccountSnapshotsByMonth)
-
-			// Holding snapshots
-			r.Post("/holdings", h.bulkUpsertHoldingSnapshots)
-			r.Get("/holdings/{holdingId}", h.getHoldingSnapshotHistory)
-
-			// Credit card snapshots
-			r.Post("/credit-cards", h.bulkUpsertCreditCardSnapshots)
-			r.Get("/credit-cards/{accountId}", h.getCreditCardSnapshotHistory)
-		})
-
-		// Financial Instruments
-		r.Get("/instruments/search", h.searchInstruments)
-
-		// Monthly Summary
-		r.Get("/summary", h.getMonthlySummaryRange)
-		r.Get("/summary/{month}", h.getMonthlySummary)
-
-		// Dashboard
-		r.Get("/dashboard", h.getDashboard)
 	})
 
 	return r
@@ -234,6 +324,19 @@ func (h *Handler) deleteAccount(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Holding Handlers ---
+
+func (h *Handler) listAllHoldings(w http.ResponseWriter, r *http.Request) {
+	holdings, err := h.svc.GetAllHoldings(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp := make([]model.HoldingResponse, 0, len(holdings))
+	for _, hld := range holdings {
+		resp = append(resp, toHoldingResponse(hld))
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
 
 func (h *Handler) listHoldings(w http.ResponseWriter, r *http.Request) {
 	accountID, err := parseID(r, "accountId")
@@ -470,6 +573,35 @@ func (h *Handler) searchInstruments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, results)
 }
 
+// --- Auth Handlers ---
+
+func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	var req model.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	token, err := h.svc.Login(r.Context(), req.Username, req.Password)
+	if err != nil {
+		http.Error(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, http.StatusOK, model.LoginResponse{Token: token})
+}
+
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	var req model.RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.Register(r.Context(), req.Username, req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+}
+
 // --- Dashboard Handler ---
 
 func (h *Handler) getDashboard(w http.ResponseWriter, r *http.Request) {
@@ -522,4 +654,265 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+func writeError(w http.ResponseWriter, err error) {
+	status := http.StatusInternalServerError
+	if errors.Is(err, model.ErrNotFound) {
+		status = http.StatusNotFound
+	} else if errors.Is(err, model.ErrValidation) {
+		status = http.StatusBadRequest
+	}
+	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// --- Employment Handlers ---
+
+func (h *Handler) listEmployments(w http.ResponseWriter, r *http.Request) {
+	list, err := h.svc.GetEmployments(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *Handler) createEmployment(w http.ResponseWriter, r *http.Request) {
+	var req model.CreateEmploymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	id, err := h.svc.CreateEmployment(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) getEmployment(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	emp, err := h.svc.GetEmploymentByID(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, emp)
+}
+
+func (h *Handler) updateEmployment(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var req model.UpdateEmploymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdateEmployment(r.Context(), id, req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deleteEmployment(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.svc.DeleteEmployment(r.Context(), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Payslip Handlers ---
+
+func (h *Handler) listPayslips(w http.ResponseWriter, r *http.Request) {
+	employmentID, err := parseID(r, "employmentId")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employmentId"})
+		return
+	}
+	list, err := h.svc.GetPayslipsByEmploymentID(r.Context(), employmentID)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *Handler) createPayslip(w http.ResponseWriter, r *http.Request) {
+	employmentID, err := parseID(r, "employmentId")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid employmentId"})
+		return
+	}
+	var req model.CreatePayslipRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	id, err := h.svc.CreatePayslip(r.Context(), employmentID, req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) getPayslip(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	p, err := h.svc.GetPayslipByID(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) updatePayslip(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var req model.UpdatePayslipRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdatePayslip(r.Context(), id, req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deletePayslip(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.svc.DeletePayslip(r.Context(), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Goal Handlers ---
+
+func (h *Handler) listGoals(w http.ResponseWriter, r *http.Request) {
+	goals, err := h.svc.GetGoals(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, goals)
+}
+
+func (h *Handler) createGoal(w http.ResponseWriter, r *http.Request) {
+	var req model.CreateGoalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	id, err := h.svc.CreateGoal(r.Context(), req)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) getGoal(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	goal, err := h.svc.GetGoalByID(r.Context(), id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if goal == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "goal not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, goal)
+}
+
+func (h *Handler) updateGoal(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var req model.UpdateGoalRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdateGoal(r.Context(), id, req); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deleteGoal(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.svc.DeleteGoal(r.Context(), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) getGoalAnalytics(w http.ResponseWriter, r *http.Request) {
+	analytics, err := h.svc.GetGoalAnalytics(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, analytics)
+}
+
+func (h *Handler) updateGoalMappings(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var mappings []model.GoalMappingInput
+	if err := json.NewDecoder(r.Body).Decode(&mappings); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdateGoalMappings(r.Context(), id, mappings); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

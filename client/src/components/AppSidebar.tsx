@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboardIcon,
   LandmarkIcon,
@@ -10,11 +10,16 @@ import {
   ClipboardCheckIcon,
   HeartPulseIcon,
   BanknoteIcon,
-  CalculatorIcon
+  CalculatorIcon,
+  LogOutIcon,
+  BriefcaseIcon,
+  ReceiptIcon,
+  FlagIcon,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -22,6 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 const navItems = [
@@ -33,6 +39,9 @@ const navItems = [
   { title: "Loan Calculator", href: "/loan-calculator", icon: CalculatorIcon },
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Expenses", href: "/expenses", icon: WalletIcon },
+  { title: "Goals", href: "/goals", icon: FlagIcon },
+  { title: "Salary", href: "/salary", icon: BriefcaseIcon },
+  { title: "Taxation", href: "/taxation", icon: ReceiptIcon },
   { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },
   { title: "Reports", href: "/reports", icon: BarChart3Icon },
   { title: "Settings", href: "/settings", icon: SettingsIcon },
@@ -40,6 +49,14 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const username = localStorage.getItem("username") ?? "User";
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    navigate("/");
+  }
 
   return (
     <Sidebar>
@@ -71,6 +88,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarSeparator />
+      <SidebarFooter className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium uppercase">
+            {username[0]}
+          </div>
+          <span className="truncate text-sm font-medium">{username}</span>
+          <button
+            onClick={handleLogout}
+            className="ml-auto text-muted-foreground hover:text-foreground"
+            title="Sign out"
+          >
+            <LogOutIcon className="size-4" />
+          </button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
 
 const fmtAmt = (v: string) => (v ? formatINR(Number(v), false) : "");
 const rawAmt = (v: string) => v.replace(/[^0-9.]/g, "");
@@ -148,7 +149,7 @@ export default function AccountsPage() {
   };
 
   const fetchAccounts = () => {
-    fetch("http://localhost:8080/api/accounts")
+    apiFetch("/api/accounts")
       .then((res) => res.json())
       .then((data: Account[]) => setAccounts(data ?? []));
   };
@@ -186,7 +187,7 @@ export default function AccountsPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("http://localhost:8080/api/accounts", {
+      const res = await apiFetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,7 +206,7 @@ export default function AccountsPage() {
       if (res.ok) {
         const { id } = await res.json();
         if (category === "loan" && (createLoanAmount || createOutstandingAmount)) {
-          await fetch("http://localhost:8080/api/snapshots/accounts", {
+          await apiFetch("/api/snapshots/accounts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([{
@@ -249,8 +250,8 @@ export default function AccountsPage() {
 
     setUpdating(true);
     try {
-      const res = await fetch(
-        `http://localhost:8080/api/accounts/${updateAccountId}`,
+      const res = await apiFetch(
+        `/api/accounts/${updateAccountId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -268,7 +269,7 @@ export default function AccountsPage() {
       );
       if (res.ok) {
         if (selectedUpdateAccount.category === "loan" && (updateLoanAmount || updateOutstandingAmount)) {
-          await fetch("http://localhost:8080/api/snapshots/accounts", {
+          await apiFetch("/api/snapshots/accounts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify([{
@@ -308,7 +309,7 @@ export default function AccountsPage() {
 
   const handleDelete = async (id: number) => {
     const acc = accounts.find((a) => a.id === id);
-    const res = await fetch(`http://localhost:8080/api/accounts/${id}`, {
+    const res = await apiFetch(`/api/accounts/${id}`, {
       method: "DELETE",
     });
     if (res.ok) {
@@ -321,7 +322,7 @@ export default function AccountsPage() {
 
   const handleActivate = async (id: number) => {
     const acc = accounts.find((a) => a.id === id);
-    const res = await fetch(`http://localhost:8080/api/accounts/${id}`, {
+    const res = await apiFetch(`/api/accounts/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: true }),
