@@ -197,6 +197,26 @@ func (r *Repository) GetGoalMonthlyHistory(ctx context.Context) (map[int64][]mod
 	return result, rows.Err()
 }
 
+func (r *Repository) GetGoalSuggestions(ctx context.Context) ([]model.GoalSuggestion, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT name, priority, notes FROM goals WHERE user_id = 0 ORDER BY priority ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.GoalSuggestion
+	for rows.Next() {
+		var s model.GoalSuggestion
+		if err := rows.Scan(&s.Name, &s.Priority, &s.Notes); err != nil {
+			return nil, err
+		}
+		list = append(list, s)
+	}
+	return list, rows.Err()
+}
+
 func (r *Repository) ReplaceGoalMappings(ctx context.Context, goalID int64, mappings []model.GoalMapping) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

@@ -322,7 +322,7 @@ export default function InsurancePage() {
     setLoading(true);
     try {
       const data = await apiFetch("/api/insurances");
-      setInsurances(data ?? []);
+      setInsurances(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to load insurances");
     } finally {

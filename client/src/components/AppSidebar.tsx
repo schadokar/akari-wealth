@@ -16,7 +16,10 @@ import {
   ReceiptIcon,
   FlagIcon,
   ShieldIcon,
+  SunIcon,
+  MoonIcon,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import {
   Sidebar,
   SidebarContent,
@@ -53,6 +56,7 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const username = localStorage.getItem("username") ?? "User";
+  const { dark, toggle } = useTheme();
 
   function handleLogout() {
     localStorage.removeItem("token");
@@ -97,13 +101,22 @@ export function AppSidebar() {
             {username[0]}
           </div>
           <span className="truncate text-sm font-medium">{username}</span>
-          <button
-            onClick={handleLogout}
-            className="ml-auto text-muted-foreground hover:text-foreground"
-            title="Sign out"
-          >
-            <LogOutIcon className="size-4" />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={toggle}
+              className="text-muted-foreground hover:text-foreground"
+              title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-foreground"
+              title="Sign out"
+            >
+              <LogOutIcon className="size-4" />
+            </button>
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

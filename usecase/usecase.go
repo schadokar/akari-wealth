@@ -85,6 +85,7 @@ type Store interface {
 	ReplaceGoalMappings(ctx context.Context, goalID int64, mappings []model.GoalMapping) error
 	GetGoalLatestAmounts(ctx context.Context) (map[int64]map[string][2]float64, error)
 	GetGoalMonthlyHistory(ctx context.Context) (map[int64][]model.GoalMonthPoint, error)
+	GetGoalSuggestions(ctx context.Context) ([]model.GoalSuggestion, error)
 }
 
 type UseCase struct {

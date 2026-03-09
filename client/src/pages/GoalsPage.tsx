@@ -120,6 +120,12 @@ interface GoalAnalytics {
   est_months_left?: number;
 }
 
+interface GoalSuggestion {
+  name: string;
+  priority: number;
+  notes?: string;
+}
+
 interface MappingRow {
   asset_table: "account" | "holding";
   asset_id: string;
@@ -348,6 +354,16 @@ function GoalFormDialog({ open, onClose, onSaved, accounts, holdings, editGoal }
   const [mappings, setMappings] = useState<MappingRow[]>([{ asset_table: "account", asset_id: "", weight: "" }]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<GoalSuggestion[]>([]);
+
+  useEffect(() => {
+    if (open && !isEdit) {
+      apiFetch("/api/goals/suggestions")
+        .then((r) => r.json())
+        .then((data) => setSuggestions(data ?? []))
+        .catch(() => {});
+    }
+  }, [open, isEdit]);
 
   useEffect(() => {
     if (open) {
@@ -457,103 +473,134 @@ function GoalFormDialog({ open, onClose, onSaved, accounts, holdings, editGoal }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Goal" : "Add Goal"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Name</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Retirement corpus" />
-          </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Target Amount (₹)</label>
-            <Input
-              type="number"
-              min={1}
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              placeholder="e.g. 10000000"
-            />
-          </div>
+          {/* Row 1: core fields (left) + suggestions (right) */}
+          <div className={!isEdit ? "grid grid-cols-[1fr_200px] gap-6" : ""}>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Name</label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Retirement corpus" />
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Priority</label>
-              <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={priority}
-                onChange={(e) => setPriority(Number(e.target.value))}
-              >
-                {Object.entries(PRIORITY_LEVELS).map(([lvl, meta]) => (
-                  <option key={lvl} value={lvl}>{meta.short}</option>
-                ))}
-              </select>
-              <p className="text-[11px] text-muted-foreground leading-snug">{PRIORITY_LEVELS[priority]?.description}</p>
-              <p className="text-[11px] text-muted-foreground italic">e.g. {PRIORITY_LEVELS[priority]?.examples}</p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Target Date <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Target Amount (₹)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  placeholder="e.g. 10000000"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Priority</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={priority}
+                    onChange={(e) => setPriority(Number(e.target.value))}
                   >
-                    <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
-                    {targetDate ? format(parseISO(targetDate), "PPP") : <span className="text-muted-foreground">Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={targetDate ? parseISO(targetDate) : undefined}
-                    onSelect={(date) => setTargetDate(date ? format(date, "yyyy-MM-dd") : "")}
-                    captionLayout="dropdown"
-                    disabled={{ before: new Date() }}
-                    fromYear={new Date().getFullYear()}
-                    toYear={new Date().getFullYear() + 30}
-                    initialFocus
-                  />
-                  {targetDate && (
-                    <div className="border-t p-2">
+                    {Object.entries(PRIORITY_LEVELS).map(([lvl, meta]) => (
+                      <option key={lvl} value={lvl}>{meta.short}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground leading-snug">{PRIORITY_LEVELS[priority]?.description}</p>
+                  <p className="text-[11px] text-muted-foreground italic">e.g. {PRIORITY_LEVELS[priority]?.examples}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Target Date <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full text-xs text-muted-foreground"
-                        onClick={() => setTargetDate("")}
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
                       >
-                        Clear date
+                        <CalendarIcon className="mr-2 size-4 text-muted-foreground" />
+                        {targetDate ? format(parseISO(targetDate), "PPP") : <span className="text-muted-foreground">Pick a date</span>}
                       </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={targetDate ? parseISO(targetDate) : undefined}
+                        onSelect={(date) => setTargetDate(date ? format(date, "yyyy-MM-dd") : "")}
+                        captionLayout="dropdown"
+                        disabled={{ before: new Date() }}
+                        fromYear={new Date().getFullYear()}
+                        toYear={new Date().getFullYear() + 30}
+                        initialFocus
+                      />
+                      {targetDate && (
+                        <div className="border-t p-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-muted-foreground"
+                            onClick={() => setTargetDate("")}
+                          >
+                            Clear date
+                          </Button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {isEdit && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="active">Active</option>
+                    <option value="achieved">Achieved</option>
+                    <option value="paused">Paused</option>
+                  </select>
+                </div>
+              )}
             </div>
+
+            {!isEdit && suggestions.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Suggestions</label>
+                <div className="flex flex-col gap-1.5">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setName(s.name);
+                        setPriority(s.priority);
+                        setNotes(s.notes ?? "");
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted transition-colors"
+                      title={s.notes}
+                    >
+                      <span className={`size-1.5 rounded-full ${PRIORITY_LEVELS[s.priority]?.color.split(" ")[0] ?? "bg-muted"}`} />
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Row 2: notes, asset mappings, error, submit */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Notes <span className="text-muted-foreground font-normal">(optional)</span></label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes…" />
           </div>
-
-          {isEdit && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Status</label>
-              <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="active">Active</option>
-                <option value="achieved">Achieved</option>
-                <option value="paused">Paused</option>
-              </select>
-            </div>
-          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">

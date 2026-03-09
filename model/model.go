@@ -365,6 +365,12 @@ type GoalResponse struct {
 	UpdatedAt    string        `json:"updated_at"`
 }
 
+type GoalSuggestion struct {
+	Name     string  `json:"name"`
+	Priority int     `json:"priority"`
+	Notes    *string `json:"notes,omitempty"`
+}
+
 // --- Goal Analytics ---
 
 type GoalMonthPoint struct {

@@ -13,5 +13,11 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  return fetch(`${BASE_URL}${path}`, { ...init, headers });
+  return fetch(`${BASE_URL}${path}`, { ...init, headers }).then((res) => {
+    if (res.status === 401) {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+    return res;
+  });
 }

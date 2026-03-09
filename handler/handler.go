@@ -87,6 +87,7 @@ type Service interface {
 	DeleteGoal(ctx context.Context, id int64) error
 	UpdateGoalMappings(ctx context.Context, goalID int64, mappings []model.GoalMappingInput) error
 	GetGoalAnalytics(ctx context.Context) ([]model.GoalAnalyticsEntry, error)
+	GetGoalSuggestions(ctx context.Context) ([]model.GoalSuggestion, error)
 }
 
 type Handler struct {
@@ -213,6 +214,7 @@ func (h *Handler) Routes() *chi.Mux {
 				r.Get("/", h.listGoals)
 				r.Post("/", h.createGoal)
 				r.Get("/analytics", h.getGoalAnalytics)
+				r.Get("/suggestions", h.getGoalSuggestions)
 				r.Get("/{id}", h.getGoal)
 				r.Put("/{id}", h.updateGoal)
 				r.Delete("/{id}", h.deleteGoal)
@@ -905,6 +907,18 @@ func (h *Handler) deleteGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) getGoalSuggestions(w http.ResponseWriter, r *http.Request) {
+	suggestions, err := h.svc.GetGoalSuggestions(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if suggestions == nil {
+		suggestions = []model.GoalSuggestion{}
+	}
+	writeJSON(w, http.StatusOK, suggestions)
 }
 
 func (h *Handler) getGoalAnalytics(w http.ResponseWriter, r *http.Request) {

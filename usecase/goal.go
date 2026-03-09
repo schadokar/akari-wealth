@@ -105,6 +105,10 @@ func (u *UseCase) DeleteGoal(ctx context.Context, id int64) error {
 	return u.store.DeleteGoal(ctx, id)
 }
 
+func (u *UseCase) GetGoalSuggestions(ctx context.Context) ([]model.GoalSuggestion, error) {
+	return u.store.GetGoalSuggestions(ctx)
+}
+
 func (u *UseCase) UpdateGoalMappings(ctx context.Context, goalID int64, inputs []model.GoalMappingInput) error {
 	if err := validateMappingWeights(inputs); err != nil {
 		return err
