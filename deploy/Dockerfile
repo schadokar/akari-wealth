@@ -16,6 +16,7 @@ RUN go build -o perfi ./cmd
 
 # Stage 3: Runtime
 FROM alpine:3.21
+RUN mkdir -p /data
 WORKDIR /app
 COPY --from=go-builder /app/perfi .
 COPY db/migrations ./db/migrations
