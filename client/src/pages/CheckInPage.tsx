@@ -12,6 +12,12 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -73,6 +79,8 @@ export default function CheckInPage() {
 
   const [snapshots, setSnapshots] = useState<AccountSnapshot[]>([]);
   const [viewAccountId, setViewAccountId] = useState<number>(0);
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [liabilityModalOpen, setLiabilityModalOpen] = useState(false);
 
   const showToast = (type: "success" | "error", text: string) => {
     setToast({ type, text });
@@ -179,6 +187,7 @@ export default function CheckInPage() {
         });
         setLiabilityRows(reset);
         if (viewAccountId) fetchSnapshots(viewAccountId);
+        setLiabilityModalOpen(false);
       } else {
         showToast("error", "Failed to save liability snapshots. Please try again.");
       }
@@ -223,6 +232,7 @@ export default function CheckInPage() {
         });
         setRows(reset);
         if (viewAccountId) fetchSnapshots(viewAccountId);
+        setAssetModalOpen(false);
       } else {
         showToast("error", "Failed to save snapshots. Please try again.");
       }
@@ -269,148 +279,156 @@ export default function CheckInPage() {
             </div>
           )}
 
-          {/* Record Asset Snapshots */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Record Asset Snapshot</CardTitle>
-                <CardDescription>Log current balances for each account</CardDescription>
+          {/* Snapshot actions */}
+          <div className="flex gap-3">
+            <Button onClick={() => setAssetModalOpen(true)}>Record Asset Snapshot</Button>
+            <Button variant="outline" onClick={() => setLiabilityModalOpen(true)}>Record Liability Snapshot</Button>
+          </div>
+
+          {/* Asset Snapshot Modal */}
+          <Dialog open={assetModalOpen} onOpenChange={setAssetModalOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Record Asset Snapshot</DialogTitle>
+              </DialogHeader>
+              <div className="flex items-center gap-2 mb-4">
+                <label htmlFor="month" className="text-sm font-medium whitespace-nowrap">
+                  Month
+                </label>
+                <Input
+                  id="month"
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="w-36"
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="month" className="text-sm font-medium whitespace-nowrap">
-                    Month
-                  </label>
-                  <Input
-                    id="month"
-                    type="month"
-                    value={month}
-                    onChange={(e) => setMonth(e.target.value)}
-                    className="w-36"
-                  />
-                </div>
+              <div className="overflow-auto max-h-[60vh]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Invested Amount</TableHead>
+                      <TableHead>Current Amount</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {accounts.map((a) => {
+                      const row = rows[a.id] ?? { invested: "", current: "", notes: "" };
+                      const isBank = a.category === "bank";
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell className="font-medium">{a.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{a.category}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              placeholder={isBank ? "Auto" : "Required"}
+                              value={fmtAmt(row.invested)}
+                              disabled={isBank}
+                              onChange={(e) => updateRow(a.id, "invested", rawAmt(e.target.value))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              placeholder="Required"
+                              value={fmtAmt(row.current)}
+                              onChange={(e) => updateRow(a.id, "current", rawAmt(e.target.value))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              placeholder="Optional"
+                              value={row.notes}
+                              onChange={(e) => updateRow(a.id, "notes", e.target.value)}
+                              className="w-40"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setAssetModalOpen(false)}>Cancel</Button>
                 <Button onClick={handleSaveAll} disabled={saving || !hasAnyInput}>
                   {saving ? "Saving..." : "Save All"}
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Invested Amount</TableHead>
-                    <TableHead>Current Amount</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {accounts.map((a) => {
-                    const row = rows[a.id] ?? { invested: "", current: "", notes: "" };
-                    const isBank = a.category === "bank";
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell className="font-medium">{a.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{a.category}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            placeholder={isBank ? "Auto" : "Required"}
-                            value={fmtAmt(row.invested)}
-                            disabled={isBank}
-                            onChange={(e) => updateRow(a.id, "invested", rawAmt(e.target.value))}
-                            className="w-32"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            placeholder="Required"
-                            value={fmtAmt(row.current)}
-                            onChange={(e) => updateRow(a.id, "current", rawAmt(e.target.value))}
-                            className="w-32"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            placeholder="Optional"
-                            value={row.notes}
-                            onChange={(e) => updateRow(a.id, "notes", e.target.value)}
-                            className="w-40"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
 
-          {/* Record Liability Snapshots */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Record Liability Snapshot</CardTitle>
-                <CardDescription>Log current balances for each liability</CardDescription>
+          {/* Liability Snapshot Modal */}
+          <Dialog open={liabilityModalOpen} onOpenChange={setLiabilityModalOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Record Liability Snapshot</DialogTitle>
+              </DialogHeader>
+              <div className="overflow-auto max-h-[60vh]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Account</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Debt</TableHead>
+                      <TableHead>Outstanding</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {liabilities.map((a) => {
+                      const row = liabilityRows[a.id] ?? { invested: "", current: "", notes: "" };
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell className="font-medium">{a.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{a.category}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              placeholder="Auto"
+                              value={fmtAmt(row.invested)}
+                              disabled={a.category === "credit_card" || a.category === "loan"}
+                              onChange={(e) => updateLiabilityRow(a.id, "invested", rawAmt(e.target.value))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              placeholder="Required"
+                              value={fmtAmt(row.current)}
+                              onChange={(e) => updateLiabilityRow(a.id, "current", rawAmt(e.target.value))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              placeholder="Optional"
+                              value={row.notes}
+                              onChange={(e) => updateLiabilityRow(a.id, "notes", e.target.value)}
+                              className="w-40"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-              <Button onClick={handleSaveLiabilities} disabled={savingLiabilities || !hasAnyLiabilityInput}>
-                {savingLiabilities ? "Saving..." : "Save All"}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Debt</TableHead>
-                    <TableHead>Outstanding</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {liabilities.map((a) => {
-                    const row = liabilityRows[a.id] ?? { invested: "", current: "", notes: "" };
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell className="font-medium">{a.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{a.category}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            placeholder="Auto"
-                            value={fmtAmt(row.invested)}
-                            disabled={a.category === "credit_card" || a.category === "loan"}
-                            onChange={(e) => updateLiabilityRow(a.id, "invested", rawAmt(e.target.value))}
-                            className="w-32"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            placeholder="Required"
-                            value={fmtAmt(row.current)}
-                            onChange={(e) => updateLiabilityRow(a.id, "current", rawAmt(e.target.value))}
-                            className="w-32"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            placeholder="Optional"
-                            value={row.notes}
-                            onChange={(e) => updateLiabilityRow(a.id, "notes", e.target.value)}
-                            className="w-40"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setLiabilityModalOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveLiabilities} disabled={savingLiabilities || !hasAnyLiabilityInput}>
+                  {savingLiabilities ? "Saving..." : "Save All"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Snapshot History */}
           <Card>

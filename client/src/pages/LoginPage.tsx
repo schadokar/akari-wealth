@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+const DEMO_MODE = !!import.meta.env.VITE_DEMO_USER;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,31 +106,33 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-center gap-1 text-sm text-muted-foreground">
-          {mode === "login" ? (
-            <>
-              <span>Don't have an account?</span>
-              <button
-                type="button"
-                onClick={() => switchMode("register")}
-                className="text-foreground underline underline-offset-4"
-              >
-                Register
-              </button>
-            </>
-          ) : (
-            <>
-              <span>Already have an account?</span>
-              <button
-                type="button"
-                onClick={() => switchMode("login")}
-                className="text-foreground underline underline-offset-4"
-              >
-                Sign in
-              </button>
-            </>
-          )}
-        </div>
+        {!DEMO_MODE && (
+          <div className="flex justify-center gap-1 text-sm text-muted-foreground">
+            {mode === "login" ? (
+              <>
+                <span>Don't have an account?</span>
+                <button
+                  type="button"
+                  onClick={() => switchMode("register")}
+                  className="text-foreground underline underline-offset-4"
+                >
+                  Register
+                </button>
+              </>
+            ) : (
+              <>
+                <span>Already have an account?</span>
+                <button
+                  type="button"
+                  onClick={() => switchMode("login")}
+                  className="text-foreground underline underline-offset-4"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

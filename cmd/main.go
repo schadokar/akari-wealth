@@ -16,6 +16,7 @@ import (
 
 	"github.com/perfi/handler"
 	"github.com/perfi/repository"
+	"github.com/perfi/seed"
 	"github.com/perfi/usecase"
 )
 
@@ -59,6 +60,9 @@ func main() {
 	}
 
 	uc := usecase.New(repo)
+
+	seed.Run(context.Background(), uc, repo)
+
 	h := handler.New(uc)
 
 	log.Println("listening on :8080")

@@ -12,6 +12,12 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -112,6 +118,8 @@ type Toast = { type: "success" | "error"; text: string };
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [name, setName] = useState("");
   const [category, setCategory] = useState("bank");
   const [submitting, setSubmitting] = useState(false);
@@ -125,6 +133,7 @@ export default function AccountsPage() {
   const [createNotes, setCreateNotes] = useState("");
   const [createLoanAmount, setCreateLoanAmount] = useState("");
   const [createOutstandingAmount, setCreateOutstandingAmount] = useState("");
+  const [createSubCategory, setCreateSubCategory] = useState("home_loan");
 
   // Update Account state
   const [updateAccountId, setUpdateAccountId] = useState<number>(0);
@@ -140,6 +149,7 @@ export default function AccountsPage() {
   const [updateNotes, setUpdateNotes] = useState("");
   const [updateLoanAmount, setUpdateLoanAmount] = useState("");
   const [updateOutstandingAmount, setUpdateOutstandingAmount] = useState("");
+  const [updateSubCategory, setUpdateSubCategory] = useState("");
 
   const selectedUpdateAccount = accounts.find((a) => a.id === updateAccountId);
 
@@ -193,6 +203,7 @@ export default function AccountsPage() {
         body: JSON.stringify({
           name: name.trim(),
           category,
+          sub_category: category === "loan" ? createSubCategory : undefined,
           asset_class: CATEGORY_TO_ASSET_CLASS[category] ?? "asset",
           institution: createInstitution.trim() || undefined,
           interest_rate: createInterestRate ? parseFloat(createInterestRate) : undefined,
@@ -221,6 +232,7 @@ export default function AccountsPage() {
           });
         }
         showToast("success", `Account "${name.trim()}" created successfully.`);
+        setShowCreateModal(false);
         setName("");
         setCategory("bank");
         setShowCreateExtra(false);
@@ -233,6 +245,7 @@ export default function AccountsPage() {
         setCreateNotes("");
         setCreateLoanAmount("");
         setCreateOutstandingAmount("");
+        setCreateSubCategory("home_loan");
         fetchAccounts();
       } else {
         showToast("error", "Failed to create account. Please try again.");
@@ -257,6 +270,7 @@ export default function AccountsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: updateName.trim() || undefined,
+            sub_category: selectedUpdateAccount?.category === "loan" ? (updateSubCategory || undefined) : undefined,
             institution: updateInstitution.trim() || undefined,
             interest_rate: updateInterestRate ? parseFloat(updateInterestRate) : undefined,
             emi_amount: updateEmiAmount ? parseFloat(updateEmiAmount) : undefined,
@@ -284,6 +298,7 @@ export default function AccountsPage() {
           });
         }
         showToast("success", `Account "${selectedUpdateAccount.name}" updated successfully.`);
+        setShowUpdateModal(false);
         setUpdateAccountId(0);
         setUpdateName("");
         setShowUpdateExtra(false);
@@ -296,6 +311,7 @@ export default function AccountsPage() {
         setUpdateNotes("");
         setUpdateLoanAmount("");
         setUpdateOutstandingAmount("");
+        setUpdateSubCategory("");
         fetchAccounts();
       } else {
         showToast("error", "Failed to update account. Please try again.");
@@ -358,15 +374,12 @@ export default function AccountsPage() {
             </div>
           )}
 
-          {/* Create Account */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Create Account</CardTitle>
-              <CardDescription>
-                Add a new financial account to track
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          {/* Create Account Modal */}
+          <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create Account</DialogTitle>
+              </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
                   <div className="space-y-2">
@@ -477,6 +490,20 @@ export default function AccountsPage() {
                     {category === "loan" && (
                       <>
                         <div className="space-y-2">
+                          <label className="text-sm font-medium">Loan Type</label>
+                          <select
+                            value={createSubCategory}
+                            onChange={(e) => setCreateSubCategory(e.target.value)}
+                            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                          >
+                            <option value="home_loan">Home Loan</option>
+                            <option value="vehicle_loan">Vehicle / Auto Loan</option>
+                            <option value="personal_loan">Personal Loan</option>
+                            <option value="education_loan">Education Loan</option>
+                            <option value="other_loan">Other</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
                           <label className="text-sm font-medium">Loan Amount</label>
                           <Input
                             type="text"
@@ -513,64 +540,17 @@ export default function AccountsPage() {
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
 
-          {/* Update Account */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Update Account</CardTitle>
-              <CardDescription>
-                Update an existing account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          {/* Update Account Modal */}
+          <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Update Account</DialogTitle>
+              </DialogHeader>
               <form onSubmit={handleUpdate} className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-4 sm:items-end">
-                  <div className="space-y-2">
-                    <label htmlFor="updateAccount" className="text-sm font-medium">
-                      Account
-                    </label>
-                    <select
-                      id="updateAccount"
-                      value={updateAccountId}
-                      onChange={(e) => {
-                        const id = Number(e.target.value);
-                        setUpdateAccountId(id);
-                        const acc = accounts.find((a) => a.id === id);
-                        if (acc) {
-                          setUpdateName(acc.name);
-                          setUpdateInstitution(acc.institution ?? "");
-                          setUpdateInterestRate(acc.interest_rate?.toString() ?? "");
-                          setUpdateEmiAmount(acc.emi_amount?.toString() ?? "");
-                          setUpdateStartDate(acc.start_date ?? "");
-                          setUpdateTenureMonths(acc.tenure_months?.toString() ?? "");
-                          setUpdateMaturityDate(acc.maturity_date ?? "");
-                          setUpdateNotes(acc.notes ?? "");
-                          setUpdateLoanAmount(acc.invested_amount?.toString() ?? "");
-                          setUpdateOutstandingAmount(acc.current_amount?.toString() ?? "");
-                        }
-                      }}
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                      required
-                    >
-                      <option value={0} disabled>Select an account</option>
-                      {accounts.filter((a) => a.asset_class !== "liability").length > 0 && (
-                        <optgroup label="Assets">
-                          {accounts.filter((a) => a.asset_class !== "liability").map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                      {accounts.filter((a) => a.asset_class === "liability").length > 0 && (
-                        <optgroup label="Liabilities">
-                          {accounts.filter((a) => a.asset_class === "liability").map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                  </div>
+                <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
                   <div className="space-y-2">
                     <label htmlFor="updateCategory" className="text-sm font-medium">
                       Category
@@ -603,7 +583,6 @@ export default function AccountsPage() {
                     variant="ghost"
                     className="text-muted-foreground"
                     onClick={() => setShowUpdateExtra((v) => !v)}
-                    disabled={updateAccountId === 0}
                   >
                     {showUpdateExtra ? "− Less details" : "+ More details"}
                   </Button>
@@ -678,6 +657,21 @@ export default function AccountsPage() {
                     {selectedUpdateAccount?.category === "loan" && (
                       <>
                         <div className="space-y-2">
+                          <label className="text-sm font-medium">Loan Type</label>
+                          <select
+                            value={updateSubCategory}
+                            onChange={(e) => setUpdateSubCategory(e.target.value)}
+                            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                          >
+                            <option value="">— keep unchanged —</option>
+                            <option value="home_loan">Home Loan</option>
+                            <option value="vehicle_loan">Vehicle / Auto Loan</option>
+                            <option value="personal_loan">Personal Loan</option>
+                            <option value="education_loan">Education Loan</option>
+                            <option value="other_loan">Other</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
                           <label className="text-sm font-medium">Loan Amount</label>
                           <Input
                             type="text"
@@ -709,21 +703,26 @@ export default function AccountsPage() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={updating || updateAccountId === 0}>
+                  <Button type="submit" disabled={updating}>
                     {updating ? "Updating..." : "Update Account"}
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
+            </DialogContent>
+          </Dialog>
 
           {/* All Accounts */}
           <Card>
-            <CardHeader>
-              <CardTitle>All Accounts</CardTitle>
-              <CardDescription>
-                {accounts.length} account{accounts.length !== 1 ? "s" : ""}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>All Accounts</CardTitle>
+                <CardDescription>
+                  {accounts.length} account{accounts.length !== 1 ? "s" : ""}
+                </CardDescription>
+              </div>
+              <Button onClick={() => setShowCreateModal(true)}>
+                + Add Account
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -761,7 +760,29 @@ export default function AccountsPage() {
                           {account.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setUpdateAccountId(account.id);
+                            setUpdateName(account.name);
+                            setUpdateInstitution(account.institution ?? "");
+                            setUpdateInterestRate(account.interest_rate?.toString() ?? "");
+                            setUpdateEmiAmount(account.emi_amount?.toString() ?? "");
+                            setUpdateStartDate(account.start_date ?? "");
+                            setUpdateTenureMonths(account.tenure_months?.toString() ?? "");
+                            setUpdateMaturityDate(account.maturity_date ?? "");
+                            setUpdateNotes(account.notes ?? "");
+                            setUpdateLoanAmount(account.invested_amount?.toString() ?? "");
+                            setUpdateOutstandingAmount(account.current_amount?.toString() ?? "");
+                            setUpdateSubCategory(account.sub_category ?? "");
+                            setShowUpdateExtra(false);
+                            setShowUpdateModal(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
                         {account.is_active ? (
                           <Button
                             variant="ghost"

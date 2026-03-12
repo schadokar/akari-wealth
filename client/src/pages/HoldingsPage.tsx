@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
   SidebarProvider,
   SidebarInset,
   SidebarTrigger,
@@ -111,6 +121,36 @@ export default function HoldingsPage() {
   const [updateInvestedAmount, setUpdateInvestedAmount] = useState("");
   const [updateCurrentAmount, setUpdateCurrentAmount] = useState("");
   const [updating, setUpdating] = useState(false);
+
+  // Performance chart
+  type PerfPeriod = "3M" | "6M" | "12M" | "YTD";
+  interface PerfPoint { month: string; invested?: number; current: number; }
+  const [perfHoldingId, setPerfHoldingId] = useState<number>(0);
+  const [perfPeriod, setPerfPeriod] = useState<PerfPeriod>("6M");
+  const [perfData, setPerfData] = useState<PerfPoint[]>([]);
+
+  useEffect(() => {
+    if (perfHoldingId === 0) { setPerfData([]); return; }
+    apiFetch(`/api/snapshots/holdings/${perfHoldingId}`)
+      .then((r) => r.json())
+      .then((raw: { month: string; invested_amount?: number; current_amount: number }[]) => {
+        if (!Array.isArray(raw)) return;
+        const sorted = [...raw].sort((a, b) => a.month.localeCompare(b.month));
+        const now = new Date();
+        const cutoff = new Date(now);
+        if (perfPeriod === "3M") cutoff.setMonth(cutoff.getMonth() - 3);
+        else if (perfPeriod === "6M") cutoff.setMonth(cutoff.getMonth() - 6);
+        else if (perfPeriod === "12M") cutoff.setFullYear(cutoff.getFullYear() - 1);
+        else cutoff.setMonth(0); // YTD: Jan of current year
+        const cutoffStr = cutoff.toISOString().slice(0, 7);
+        setPerfData(
+          sorted
+            .filter((s) => s.month >= cutoffStr)
+            .map((s) => ({ month: s.month, invested: s.invested_amount, current: s.current_amount }))
+        );
+      })
+      .catch(() => {});
+  }, [perfHoldingId, perfPeriod]);
 
   const fetchData = async () => {
     try {
@@ -594,6 +634,122 @@ export default function HoldingsPage() {
         </Dialog>
 
         <div className="flex-1 space-y-6 p-6">
+          {/* KPI Cards */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Stocks</CardDescription>
+                <CardTitle className="text-2xl">
+                  {holdings.filter((h) => h.instrument_type === "stock" && h.is_active).length}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Mutual Funds</CardDescription>
+                <CardTitle className="text-2xl">
+                  {holdings.filter((h) => h.instrument_type === "mutual_fund" && h.is_active).length}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>ETFs</CardDescription>
+                <CardTitle className="text-2xl">
+                  {holdings.filter((h) => h.instrument_type === "etf" && h.is_active).length}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+
+          {/* Performance Chart */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <CardTitle>Holding Performance</CardTitle>
+                <div className="flex items-center gap-3">
+                  <select
+                    value={perfHoldingId}
+                    onChange={(e) => setPerfHoldingId(Number(e.target.value))}
+                    className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  >
+                    <option value={0}>Select holding…</option>
+                    {holdings.filter((h) => h.is_active).map((h) => (
+                      <option key={h.id} value={h.id}>{h.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-1">
+                    {(["3M", "6M", "12M", "YTD"] as PerfPeriod[]).map((p) => (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={perfPeriod === p ? "default" : "ghost"}
+                        onClick={() => setPerfPeriod(p)}
+                      >
+                        {p}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {perfHoldingId === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  Select a holding to view performance
+                </p>
+              ) : perfData.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No snapshot data for this period
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={perfData} margin={{ top: 4, right: 16, left: 16, bottom: 4 }}>
+                    <defs>
+                      <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis
+                      tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                      tick={{ fontSize: 12 }}
+                      width={60}
+                    />
+                    <Tooltip
+                      formatter={(v: number) => `₹${v.toLocaleString("en-IN")}`}
+                    />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="invested"
+                      name="Invested"
+                      stroke="#f59e0b"
+                      strokeDasharray="4 4"
+                      fill="url(#colorInvested)"
+                      connectNulls
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="current"
+                      name="Current Value"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      fill="url(#colorCurrent)"
+                      connectNulls
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
           {/* All Holdings */}
           <Card>
             <CardHeader>

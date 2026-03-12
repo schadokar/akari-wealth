@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +16,26 @@ import {
   Moon,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+
+const DEMO_USER = "dummy";
+const DEMO_PASS = "dummy@123";
+
+async function demoLogin(navigate: ReturnType<typeof useNavigate>) {
+  try {
+    const res = await fetch("http://localhost:8080/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: DEMO_USER, password: DEMO_PASS }),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("username", DEMO_USER);
+    navigate("/dashboard");
+  } catch {
+    // silently fail
+  }
+}
 
 function Navbar() {
   const { dark, toggle } = useTheme();
@@ -113,6 +134,7 @@ function MockDashboard() {
 }
 
 function Hero() {
+  const navigate = useNavigate();
   return (
     <section className="mx-auto max-w-6xl px-6 py-20 md:py-28">
       <div className="grid grid-cols-1 gap-12 md:grid-cols-5 md:items-center">
@@ -131,7 +153,7 @@ function Hero() {
             <Button size="lg" className="gap-2">
               Get Started Free <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => demoLogin(navigate)}>
               View Demo
             </Button>
           </div>
@@ -475,6 +497,7 @@ function TechStack() {
 }
 
 function FinalCTA() {
+  const navigate = useNavigate();
   return (
     <section className="border-t border-border py-20">
       <div className="mx-auto max-w-4xl px-6 text-center">
@@ -489,7 +512,7 @@ function FinalCTA() {
             <Button size="lg" className="gap-2">
               Get Started on GitHub <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline">
+            <Button size="lg" variant="outline" onClick={() => demoLogin(navigate)}>
               View Demo
             </Button>
           </div>

@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
 import { apiFetch } from "@/lib/api";
+import { computeAmortization, type AmortRow } from "@/lib/loanAmortization";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,34 +45,6 @@ interface ApiAccount {
   emi_amount?: number;
   tenure_months?: number;
   invested_amount?: number;
-}
-
-interface AmortRow {
-  month: number;
-  interest: number;
-  principal: number;
-  balance: number;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function computeAmortization(
-  principal: number,
-  annualRate: number,
-  emi: number,
-  tenure: number
-): AmortRow[] {
-  const r = annualRate / 12 / 100;
-  let rem = principal;
-  const rows: AmortRow[] = [];
-  for (let m = 1; m <= tenure; m++) {
-    const interest = rem * r;
-    const p = Math.min(Math.max(emi - interest, 0), rem);
-    rem = Math.max(rem - p, 0);
-    rows.push({ month: m, interest, principal: p, balance: rem });
-    if (rem < 0.5) break;
-  }
-  return rows;
 }
 
 function formatTenure(months: number): string {

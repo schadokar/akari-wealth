@@ -3,10 +3,6 @@ import {
   LayoutDashboardIcon,
   LandmarkIcon,
   TrendingUpIcon,
-  WalletIcon,
-  IndianRupeeIcon,
-  BarChart3Icon,
-  SettingsIcon,
   ClipboardCheckIcon,
   HeartPulseIcon,
   BanknoteIcon,
@@ -42,14 +38,10 @@ const navItems = [
   { title: "Loan Analyser", href: "/loans", icon: BanknoteIcon },
   { title: "Loan Calculator", href: "/loan-calculator", icon: CalculatorIcon },
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
-  { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Goals", href: "/goals", icon: FlagIcon },
   { title: "Insurance", href: "/insurance", icon: ShieldIcon },
   { title: "Salary", href: "/salary", icon: BriefcaseIcon },
   { title: "Taxation", href: "/taxation", icon: ReceiptIcon },
-  { title: "Earnings", href: "/earnings", icon: IndianRupeeIcon },
-  { title: "Reports", href: "/reports", icon: BarChart3Icon },
-  { title: "Settings", href: "/settings", icon: SettingsIcon },
 ];
 
 export function AppSidebar() {

@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardHeader,
@@ -15,6 +17,8 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { formatINR } from "@/lib/formatINR";
+import { apiFetch } from "@/lib/api";
+import { calcFYLoanSummary } from "@/lib/loanAmortization";
 
 // ─── Tax slab calculators (FY 2025-26) ───────────────────────────────────────
 
@@ -87,16 +91,25 @@ function NumInput({
   onChange,
   max,
   hint,
+  autofilled,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   max?: number;
   hint?: string;
+  autofilled?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs text-muted-foreground">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <label className="text-xs text-muted-foreground">{label}</label>
+        {autofilled && (
+          <span className="rounded bg-emerald-100 px-1 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+            auto
+          </span>
+        )}
+      </div>
       <input
         type="number"
         min={0}
@@ -180,6 +193,146 @@ export default function TaxationPage() {
   const [hra, setHra] = useState(D.hra);
   const [lta, setLta] = useState(D.lta);
   const [homeLoan, setHomeLoan] = useState(D.homeLoan);
+
+  // FY selection
+  const [fyEndYear, setFyEndYear] = useState(2026);
+  const fyStartMonth = `${fyEndYear - 1}-04`;
+  const fyEndMonth = `${fyEndYear}-03`;
+  const fyLabel = `FY ${fyEndYear - 1}-${String(fyEndYear).slice(2)}`;
+
+  // Sync state
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [autoFilled, setAutoFilled] = useState<Set<string>>(new Set());
+
+  const clearAll = useCallback(() => {
+    setGross(0); setBasic(0); setOtherIncome(0);
+    setS80C(0); setS80DSelf(0); setS80DParents(0); setParentsAbove60(false);
+    setEmployerNPS(0); setNps(0); setS80E(0); setS80G(0); setS80TTA(0);
+    setHra(0); setLta(0); setHomeLoan(0);
+    setAutoFilled(new Set()); setSyncMsg(null);
+  }, []);
+
+  const syncFromRecords = useCallback(async () => {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      // Parallel: fetch accounts + employments
+      const [accountsRes, empRes] = await Promise.all([
+        apiFetch("/api/accounts?category=loan"),
+        apiFetch("/api/employments"),
+      ]);
+
+      const accounts: Array<{
+        id: number; category: string; sub_category?: string;
+        interest_rate?: number; emi_amount?: number; start_date?: string;
+        tenure_months?: number; invested_amount?: number;
+      }> = await accountsRes.json();
+
+      const employments: Array<{ id: number; end_date?: string | null }> =
+        await empRes.json();
+
+      // Pick active employment (no end_date or latest)
+      const activeEmp = employments.find((e) => !e.end_date) ?? employments[0];
+
+      let fyPayslips: Array<{
+        basic_salary: number; hra?: number; lta?: number;
+        conveyance_allowance?: number; medical_allowance?: number;
+        special_allowance?: number; flexible_pay?: number;
+        meal_allowance?: number; mobile_allowance?: number;
+        internet_allowance?: number; differential_allowance?: number;
+        statutory_bonus?: number; performance_pay?: number;
+        advance_bonus?: number; other_allowance?: number;
+        epf: number; vpf?: number; nps?: number;
+        pay_month: string;
+      }> = [];
+
+      if (activeEmp) {
+        const psRes = await apiFetch(`/api/employments/${activeEmp.id}/payslips`);
+        const all = await psRes.json();
+        fyPayslips = all.filter(
+          (p: { pay_month: string }) =>
+            p.pay_month >= fyStartMonth && p.pay_month <= fyEndMonth
+        );
+      }
+
+      const filled = new Set<string>();
+      let epfVpfSum = 0;
+
+      // ── Payslip-derived fields ────────────────────────────────────────────
+      if (fyPayslips.length > 0) {
+        const totalBasic = fyPayslips.reduce((s, p) => s + p.basic_salary, 0);
+
+        const totalGross = fyPayslips.reduce((s, p) =>
+          s + p.basic_salary
+            + (p.hra ?? 0) + (p.conveyance_allowance ?? 0) + (p.medical_allowance ?? 0)
+            + (p.lta ?? 0) + (p.special_allowance ?? 0) + (p.flexible_pay ?? 0)
+            + (p.meal_allowance ?? 0) + (p.mobile_allowance ?? 0)
+            + (p.internet_allowance ?? 0) + (p.differential_allowance ?? 0)
+            + (p.statutory_bonus ?? 0) + (p.performance_pay ?? 0)
+            + (p.advance_bonus ?? 0) + (p.other_allowance ?? 0),
+          0);
+
+        setGross(Math.round(totalGross)); filled.add("gross");
+        setBasic(Math.round(totalBasic)); filled.add("basic");
+        setHra(Math.round(fyPayslips.reduce((s, p) => s + (p.hra ?? 0), 0)));
+        filled.add("hra");
+        setLta(Math.round(fyPayslips.reduce((s, p) => s + (p.lta ?? 0), 0)));
+        filled.add("lta");
+        setNps(Math.min(Math.round(fyPayslips.reduce((s, p) => s + (p.nps ?? 0), 0)), 50_000));
+        filled.add("nps");
+
+        epfVpfSum = Math.round(fyPayslips.reduce((s, p) => s + p.epf + (p.vpf ?? 0), 0));
+      }
+
+      // ── Home loan fields ─────────────────────────────────────────────────
+      const homeLoans = accounts.filter(
+        (a) => a.sub_category === "home_loan" && a.interest_rate != null
+          && a.emi_amount != null && a.start_date && a.tenure_months != null
+          && a.invested_amount != null
+      );
+
+      let totalInterest = 0;
+      let totalPrincipal = 0;
+      for (const loan of homeLoans) {
+        const { interestPaid, principalPaid } = calcFYLoanSummary(
+          loan.invested_amount!,
+          loan.interest_rate!,
+          loan.emi_amount!,
+          loan.tenure_months!,
+          loan.start_date!,
+          fyEndYear
+        );
+        totalInterest += interestPaid;
+        totalPrincipal += principalPaid;
+      }
+
+      if (homeLoans.length > 0) {
+        setHomeLoan(Math.min(Math.round(totalInterest), 2_00_000));
+        filled.add("homeLoan");
+      }
+
+      // 80C = EPF+VPF + home loan principal, capped at 1.5L
+      if (fyPayslips.length > 0 || homeLoans.length > 0) {
+        setS80C(Math.min(epfVpfSum + Math.round(totalPrincipal), 1_50_000));
+        filled.add("s80C");
+      }
+
+      setAutoFilled(filled);
+
+      const parts: string[] = [];
+      if (fyPayslips.length > 0) parts.push(`${fyPayslips.length} payslips`);
+      if (homeLoans.length > 0) parts.push(`${homeLoans.length} home loan${homeLoans.length > 1 ? "s" : ""}`);
+      setSyncMsg(parts.length > 0
+        ? `Synced from ${parts.join(" & ")} · ${filled.size} fields updated`
+        : `No payslip or home loan data found for ${fyLabel}`
+      );
+    } catch {
+      setSyncMsg("Failed to sync — please try again");
+    } finally {
+      setSyncing(false);
+    }
+  }, [fyEndYear, fyStartMonth, fyEndMonth, fyLabel]);
 
   const result = useMemo(() => {
     const totalIncome = gross + otherIncome;
@@ -265,7 +418,36 @@ export default function TaxationPage() {
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-2 h-4" />
           <h1 className="text-lg font-semibold">Tax Calculator</h1>
-          <Badge variant="secondary" className="ml-2">FY 2025-26</Badge>
+          <select
+            value={fyEndYear}
+            onChange={(e) => {
+              setFyEndYear(Number(e.target.value));
+              setAutoFilled(new Set());
+              setSyncMsg(null);
+            }}
+            className="ml-2 rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {[2022, 2023, 2024, 2025, 2026, 2027].map((y) => (
+              <option key={y} value={y}>{`FY ${y - 1}-${String(y).slice(2)}`}</option>
+            ))}
+          </select>
+          <div className="ml-auto flex items-center gap-3">
+            {syncMsg && (
+              <span className="text-xs text-muted-foreground">{syncMsg}</span>
+            )}
+            <Button variant="ghost" size="sm" onClick={clearAll} disabled={syncing}>
+              Clear
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={syncFromRecords}
+              disabled={syncing}
+            >
+              <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync from records"}
+            </Button>
+          </div>
         </header>
 
         <div className="flex-1 space-y-6 p-6">
@@ -278,12 +460,13 @@ export default function TaxationPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <NumInput label="Gross Annual Salary" value={gross} onChange={setGross} />
+                <NumInput label="Gross Annual Salary" value={gross} onChange={setGross} autofilled={autoFilled.has("gross")} />
                 <NumInput
                   label="Basic Salary"
                   value={basic}
                   onChange={setBasic}
                   hint="Used to compute 80CCD(2) employer NPS limit (10% of basic)"
+                  autofilled={autoFilled.has("basic")}
                 />
                 <NumInput
                   label="Other Income"
@@ -317,6 +500,7 @@ export default function TaxationPage() {
                     onChange={setS80C}
                     max={1_50_000}
                     hint="EPF, PPF, ELSS, LIC, NSC, tuition fees · Max ₹1,50,000"
+                    autofilled={autoFilled.has("s80C")}
                   />
                   <NumInput
                     label="80D — Self & Family Medical"
@@ -350,6 +534,7 @@ export default function TaxationPage() {
                     onChange={setNps}
                     max={50_000}
                     hint="Additional voluntary NPS · Max ₹50,000"
+                    autofilled={autoFilled.has("nps")}
                   />
                   <NumInput
                     label="80E — Education Loan Interest"
@@ -383,13 +568,15 @@ export default function TaxationPage() {
                     label="HRA Exemption"
                     value={hra}
                     onChange={setHra}
-                    hint="Actual exempt portion (use HRA calculator separately)"
+                    hint={autoFilled.has("hra") ? "Filled from payslip HRA allowance — adjust for actual rent-based exemption" : "Actual exempt portion (use HRA calculator separately)"}
+                    autofilled={autoFilled.has("hra")}
                   />
                   <NumInput
                     label="LTA — Leave Travel Allowance"
                     value={lta}
                     onChange={setLta}
                     hint="Actual travel cost for domestic trips"
+                    autofilled={autoFilled.has("lta")}
                   />
                 </div>
               </div>
@@ -406,6 +593,7 @@ export default function TaxationPage() {
                     onChange={setHomeLoan}
                     max={2_00_000}
                     hint="Self-occupied property · Max ₹2,00,000"
+                    autofilled={autoFilled.has("homeLoan")}
                   />
                 </div>
               </div>
@@ -572,7 +760,7 @@ export default function TaxationPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">New Regime Tax Slabs (FY 2025-26)</CardTitle>
+                <CardTitle className="text-base">New Regime Tax Slabs ({fyLabel})</CardTitle>
                 <CardDescription>87A rebate: no tax if taxable income ≤ ₹7,00,000</CardDescription>
               </CardHeader>
               <CardContent>
@@ -604,7 +792,7 @@ export default function TaxationPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Old Regime Tax Slabs (FY 2025-26)</CardTitle>
+                <CardTitle className="text-base">Old Regime Tax Slabs ({fyLabel})</CardTitle>
                 <CardDescription>87A rebate: no tax if taxable income ≤ ₹5,00,000</CardDescription>
               </CardHeader>
               <CardContent>
