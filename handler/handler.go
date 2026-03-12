@@ -133,6 +133,11 @@ func (h *Handler) Routes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(cors)
 
+	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
 	r.Route("/api", func(r chi.Router) {
 		// Public auth routes
 		r.Post("/auth/login", h.login)

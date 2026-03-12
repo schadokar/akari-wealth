@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
@@ -39,7 +40,12 @@ func main() {
 		return
 	}
 
-	db, err := sql.Open("sqlite", fmt.Sprintf("./%s.db?_texttotime=true", tableName))
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "."
+	}
+	dbPath := filepath.Join(dataDir, tableName+".db")
+	db, err := sql.Open("sqlite", dbPath+"?_texttotime=true")
 
 	if err != nil {
 		log.Fatal(err)
@@ -64,9 +70,28 @@ func main() {
 	seed.Run(context.Background(), uc, repo)
 
 	h := handler.New(uc)
+	mux := h.Routes()
 
-	log.Println("listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", h.Routes()))
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "./client/dist"
+	}
+	fs := http.FileServer(http.Dir(staticDir))
+	mux.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := filepath.Join(staticDir, r.URL.Path)
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			return
+		}
+		fs.ServeHTTP(w, r)
+	}))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Printf("listening on :%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
 
 func dropAllTables() {
@@ -95,5 +120,9 @@ func runMigrations() {
 }
 
 func getMigrateDBString() string {
-	return fmt.Sprintf("sqlite://./%s.db", tableName)
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "."
+	}
+	return fmt.Sprintf("sqlite://%s/%s.db", dataDir, tableName)
 }

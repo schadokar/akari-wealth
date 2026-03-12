@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const DEMO_MODE = !!import.meta.env.VITE_DEMO_USER;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (mode === "login") {
-        const res = await fetch("http://localhost:8080/api/auth/login", {
+        const res = await fetch(`${BASE_URL}/api/auth/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
@@ -41,7 +42,7 @@ export default function LoginPage() {
         localStorage.setItem("username", username);
         navigate("/dashboard");
       } else {
-        const res = await fetch("http://localhost:8080/api/auth/register", {
+        const res = await fetch(`${BASE_URL}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
