@@ -221,6 +221,34 @@ func (r *Repository) GetPayslipsByEmploymentID(ctx context.Context, employmentID
 	return list, rows.Err()
 }
 
+func (r *Repository) GetPayslipsByMonth(ctx context.Context, month string) ([]model.Payslip, error) {
+	userID, err := auth.UserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT `+payslipCols+`
+		 FROM payslips p
+		 JOIN employments e ON e.id = p.employment_id
+		 WHERE p.pay_month = ? AND e.user_id = ?
+		 ORDER BY p.id`, month, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []model.Payslip
+	for rows.Next() {
+		var p model.Payslip
+		if err := scanPayslip(&p, rows.Scan); err != nil {
+			return nil, err
+		}
+		list = append(list, p)
+	}
+	return list, rows.Err()
+}
+
 func (r *Repository) UpdatePayslip(ctx context.Context, id int64, p model.Payslip) error {
 	userID, err := auth.UserIDFromContext(ctx)
 	if err != nil {

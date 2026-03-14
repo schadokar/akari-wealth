@@ -274,4 +274,56 @@ func Run(ctx context.Context, uc *usecase.UseCase, store usecase.Store) {
 		}
 	}
 	log.Printf("seed: employment + %d payslips seeded", len(months))
+
+	// --- Expenses ---
+	foodAmounts := []float64{8500, 9200, 7800, 10500, 9000, 11000, 8200, 9800, 12000, 8900, 10200, 11500}
+	entertainAmounts := []float64{1500, 2200, 800, 3000, 1800, 2500, 1200, 2800, 1600, 2100, 900, 2400}
+
+	for i, month := range months {
+		// Fixed recurring: Rent
+		if _, err := uc.CreateExpense(ctx, model.Expense{
+			Month: month, Category: "rent", ExpenseType: "fixed",
+			Amount: 18000, Description: ptr("Monthly rent"), PaymentMethod: "upi", IsRecurring: true,
+		}); err != nil {
+			log.Printf("seed: expense rent %s: %v", month, err)
+		}
+		// Fixed recurring: Fuel
+		if _, err := uc.CreateExpense(ctx, model.Expense{
+			Month: month, Category: "fuel", ExpenseType: "fixed",
+			Amount: 2000, Description: ptr("Fuel"), PaymentMethod: "upi", IsRecurring: true,
+		}); err != nil {
+			log.Printf("seed: expense fuel %s: %v", month, err)
+		}
+		// Fixed recurring: Mobile
+		if _, err := uc.CreateExpense(ctx, model.Expense{
+			Month: month, Category: "subscription", ExpenseType: "fixed",
+			Amount: 500, Description: ptr("Mobile recharge"), PaymentMethod: "upi", IsRecurring: true,
+		}); err != nil {
+			log.Printf("seed: expense mobile %s: %v", month, err)
+		}
+		// OTT: yearly, billed in April
+		if month == "2025-04" {
+			if _, err := uc.CreateExpense(ctx, model.Expense{
+				Month: month, Category: "subscription", ExpenseType: "fixed",
+				Amount: 5000, Description: ptr("OTT annual subscription"), PaymentMethod: "credit_card", IsRecurring: false,
+			}); err != nil {
+				log.Printf("seed: expense ott %s: %v", month, err)
+			}
+		}
+		// Variable: Food
+		if _, err := uc.CreateExpense(ctx, model.Expense{
+			Month: month, Category: "food", ExpenseType: "variable",
+			Amount: foodAmounts[i], Description: ptr("Food & dining"), PaymentMethod: "upi", IsRecurring: false,
+		}); err != nil {
+			log.Printf("seed: expense food %s: %v", month, err)
+		}
+		// Variable: Entertainment
+		if _, err := uc.CreateExpense(ctx, model.Expense{
+			Month: month, Category: "entertainment", ExpenseType: "variable",
+			Amount: entertainAmounts[i], Description: ptr("Entertainment"), PaymentMethod: "credit_card", IsRecurring: false,
+		}); err != nil {
+			log.Printf("seed: expense entertainment %s: %v", month, err)
+		}
+	}
+	log.Printf("seed: expenses seeded (%d months)", len(months))
 }

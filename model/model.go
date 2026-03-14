@@ -294,6 +294,21 @@ type DashboardResponse struct {
 	TotalLiabilities  float64               `json:"total_liabilities"`
 	AssetDistribution map[string]float64    `json:"asset_distribution"`
 	MonthOverMonth    *MonthOverMonthChange `json:"month_over_month,omitempty"`
+	ExpenseSummary    *ExpenseSummary       `json:"expense_summary,omitempty"`
+}
+
+// ExpenseSummary estimates monthly expenses from snapshot and payslip data.
+// EstimatedExpenses = NetTakeHome - CashDelta - NewInvestments
+// It is nil when there is no previous month data to compare against.
+type ExpenseSummary struct {
+	Month             string   `json:"month"`
+	NetTakeHome       float64  `json:"net_take_home"`
+	CashDelta         float64  `json:"cash_delta"`
+	NewInvestments    float64  `json:"new_investments"`
+	EMIPaid           float64  `json:"emi_paid"`
+	EstimatedExpenses *float64 `json:"estimated_expenses,omitempty"`
+	CCOutstanding     float64  `json:"cc_outstanding"`
+	HasPayslip        bool     `json:"has_payslip"`
 }
 
 type MonthOverMonthChange struct {
@@ -573,4 +588,44 @@ type UpdateInsuranceRequest struct {
 	IsEmployerProvided *bool    `json:"is_employer_provided"`
 	IsActive           *bool    `json:"is_active"`
 	Notes              *string  `json:"notes"`
+}
+
+// --- Expense constants ---
+
+const (
+	ExpenseCategoryRent          = "rent"
+	ExpenseCategoryGrocery       = "grocery"
+	ExpenseCategoryFood          = "food"
+	ExpenseCategoryFuel          = "fuel"
+	ExpenseCategoryUtilities     = "utilities"
+	ExpenseCategoryShopping      = "shopping"
+	ExpenseCategoryMedical       = "medical"
+	ExpenseCategoryEntertainment = "entertainment"
+	ExpenseCategorySubscription  = "subscription"
+	ExpenseCategoryTravel        = "travel"
+	ExpenseCategoryMisc          = "misc"
+
+	ExpenseTypeFixed    = "fixed"
+	ExpenseTypeVariable = "variable"
+
+	PaymentMethodCash       = "cash"
+	PaymentMethodCreditCard = "credit_card"
+	PaymentMethodUPI        = "upi"
+	PaymentMethodDebitCard  = "debit_card"
+)
+
+// --- Expense DB Model ---
+
+type Expense struct {
+	ID                  int64   `json:"id"`
+	Month               string  `json:"month"`
+	Category            string  `json:"category"`
+	ExpenseType         string  `json:"expense_type"`
+	Amount              float64 `json:"amount"`
+	Description         *string `json:"description,omitempty"`
+	PaymentMethod       string  `json:"payment_method"`
+	CreditCardAccountID *int64  `json:"credit_card_account_id,omitempty"`
+	IsRecurring         bool    `json:"is_recurring"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
 }

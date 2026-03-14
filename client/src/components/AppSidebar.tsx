@@ -14,6 +14,7 @@ import {
   ShieldIcon,
   SunIcon,
   MoonIcon,
+  WalletIcon,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -40,6 +41,7 @@ const navItems = [
   { title: "Holdings", href: "/holdings", icon: TrendingUpIcon },
   { title: "Goals", href: "/goals", icon: FlagIcon },
   { title: "Insurance", href: "/insurance", icon: ShieldIcon },
+  { title: "Expenses", href: "/expenses", icon: WalletIcon },
   { title: "Salary", href: "/salary", icon: BriefcaseIcon },
   { title: "Taxation", href: "/taxation", icon: ReceiptIcon },
 ];

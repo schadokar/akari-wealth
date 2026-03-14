@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/perfi/auth"
@@ -78,6 +79,14 @@ type Service interface {
 	GetInsurances(ctx context.Context) ([]model.Insurance, error)
 	UpdateInsurance(ctx context.Context, id int64, req model.UpdateInsuranceRequest) error
 	DeleteInsurance(ctx context.Context, id int64) error
+
+	// Expenses
+	CreateExpense(ctx context.Context, e model.Expense) (int64, error)
+	GetExpenseByID(ctx context.Context, id int64) (*model.Expense, error)
+	GetExpensesByMonth(ctx context.Context, month string) ([]model.Expense, error)
+	UpdateExpense(ctx context.Context, id int64, e model.Expense) error
+	DeleteExpense(ctx context.Context, id int64) error
+	CarryForwardRecurring(ctx context.Context, month string) (int, error)
 
 	// Goals
 	CreateGoal(ctx context.Context, req model.CreateGoalRequest) (int64, error)
@@ -233,6 +242,15 @@ func (h *Handler) Routes() *chi.Mux {
 				r.Get("/{id}", h.getInsurance)
 				r.Put("/{id}", h.updateInsurance)
 				r.Delete("/{id}", h.deleteInsurance)
+			})
+
+			// Expenses
+			r.Route("/expenses", func(r chi.Router) {
+				r.Get("/", h.listExpenses)
+				r.Post("/", h.createExpense)
+				r.Post("/carry-forward", h.carryForwardExpenses)
+				r.Put("/{id}", h.updateExpense)
+				r.Delete("/{id}", h.deleteExpense)
 			})
 		})
 	})
@@ -1021,6 +1039,85 @@ func (h *Handler) deleteInsurance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.DeleteInsurance(r.Context(), id); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// --- Expense Handlers ---
+
+func (h *Handler) listExpenses(w http.ResponseWriter, r *http.Request) {
+	month := r.URL.Query().Get("month")
+	if month == "" {
+		month = time.Now().Format("2006-01")
+	}
+	expenses, err := h.svc.GetExpensesByMonth(r.Context(), month)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if expenses == nil {
+		expenses = []model.Expense{}
+	}
+	writeJSON(w, http.StatusOK, expenses)
+}
+
+func (h *Handler) createExpense(w http.ResponseWriter, r *http.Request) {
+	var e model.Expense
+	if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	id, err := h.svc.CreateExpense(r.Context(), e)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+
+func (h *Handler) carryForwardExpenses(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Month string `json:"month"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Month == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "month required"})
+		return
+	}
+	n, err := h.svc.CarryForwardRecurring(r.Context(), req.Month)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"copied": n})
+}
+
+func (h *Handler) updateExpense(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	var e model.Expense
+	if err := json.NewDecoder(r.Body).Decode(&e); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	if err := h.svc.UpdateExpense(r.Context(), id, e); err != nil {
+		writeError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) deleteExpense(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid id"})
+		return
+	}
+	if err := h.svc.DeleteExpense(r.Context(), id); err != nil {
 		writeError(w, err)
 		return
 	}

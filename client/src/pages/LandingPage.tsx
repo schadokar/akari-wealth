@@ -79,6 +79,9 @@ function Navbar() {
           <Button size="icon" variant="ghost" onClick={toggle} aria-label="Toggle theme">
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
+          <a href="/login">
+            <Button size="sm" variant="ghost">Login</Button>
+          </a>
           <Button size="sm">Get Started</Button>
         </div>
       </div>

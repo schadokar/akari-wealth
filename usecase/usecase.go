@@ -64,6 +64,7 @@ type Store interface {
 	InsertPayslip(ctx context.Context, p model.Payslip) (int64, error)
 	GetPayslipByID(ctx context.Context, id int64) (*model.Payslip, error)
 	GetPayslipsByEmploymentID(ctx context.Context, employmentID int64) ([]model.Payslip, error)
+	GetPayslipsByMonth(ctx context.Context, month string) ([]model.Payslip, error)
 	UpdatePayslip(ctx context.Context, id int64, p model.Payslip) error
 	DeletePayslip(ctx context.Context, id int64) error
 
@@ -73,6 +74,14 @@ type Store interface {
 	GetInsurances(ctx context.Context) ([]model.Insurance, error)
 	UpdateInsurance(ctx context.Context, id int64, ins model.Insurance) error
 	DeleteInsurance(ctx context.Context, id int64) error
+
+	// Expenses
+	InsertExpense(ctx context.Context, e model.Expense) (int64, error)
+	GetExpenseByID(ctx context.Context, id int64) (*model.Expense, error)
+	GetExpensesByMonth(ctx context.Context, month string) ([]model.Expense, error)
+	UpdateExpense(ctx context.Context, id int64, e model.Expense) error
+	DeleteExpense(ctx context.Context, id int64) error
+	CarryForwardRecurring(ctx context.Context, month string) (int, error)
 
 	// Goals
 	InsertGoal(ctx context.Context, g model.Goal) (int64, error)

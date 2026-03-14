@@ -14,6 +14,7 @@ import SalaryPage from "./pages/SalaryPage";
 import TaxationPage from "./pages/TaxationPage";
 import GoalsPage from "./pages/GoalsPage";
 import InsurancePage from "./pages/InsurancePage";
+import ExpensesPage from "./pages/ExpensesPage";
 import OnboardingPage from "./pages/OnboardingPage";
 
 function isTokenExpired(token: string): boolean {
@@ -54,6 +55,7 @@ function App() {
         <Route path="/taxation" element={<ProtectedRoute><TaxationPage /></ProtectedRoute>} />
         <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
         <Route path="/insurance" element={<ProtectedRoute><InsurancePage /></ProtectedRoute>} />
+        <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
