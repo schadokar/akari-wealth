@@ -67,7 +67,7 @@ func main() {
 
 	uc := usecase.New(repo)
 
-	seed.Run(context.Background(), uc, repo)
+	go seed.Run(context.Background(), uc, repo)
 
 	h := handler.New(uc)
 	mux := h.Routes()
