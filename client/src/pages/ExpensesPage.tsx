@@ -743,7 +743,7 @@ export default function ExpensesPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           {e.is_recurring && (
-                            <RepeatIcon className="inline size-3.5 text-blue-500" title="Recurring" />
+                            <RepeatIcon className="inline size-3.5 text-blue-500" />
                           )}
                         </TableCell>
                         <TableCell>
