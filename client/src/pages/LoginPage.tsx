@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 const DEMO_MODE = !!import.meta.env.VITE_DEMO_USER;
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     if (localStorage.getItem("token")) {
@@ -17,8 +18,8 @@ export default function LoginPage() {
   }, [navigate]);
 
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState(searchParams.get("username") ?? "");
+  const [password, setPassword] = useState(searchParams.get("password") ?? "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 

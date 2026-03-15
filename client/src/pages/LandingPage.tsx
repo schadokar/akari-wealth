@@ -17,24 +17,8 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 
-const DEMO_USER = "dummy";
-const DEMO_PASS = "dummy@123";
-
-async function demoLogin(navigate: ReturnType<typeof useNavigate>) {
-  try {
-    const res = await fetch("http://localhost:8080/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: DEMO_USER, password: DEMO_PASS }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("username", DEMO_USER);
-    navigate("/dashboard");
-  } catch {
-    // silently fail
-  }
+function demoLogin(navigate: ReturnType<typeof useNavigate>) {
+  navigate("/login?username=dummy&password=dummy%40123");
 }
 
 function Navbar() {
